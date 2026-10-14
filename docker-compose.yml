@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  pocketledger:
+    build: .
+    container_name: pocketledger-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - GEMMA_MODEL=gemma2:2b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./pocketledger_data:/app/uploads
+      - ./pocketledger.db:/app/pocketledger.db
+    restart: unless-stopped
