@@ -154,6 +154,8 @@ async def upload_documents(
             currency=rec["currency"],
             subtotal=rec["subtotal"],
             tax=rec["tax"],
+            discount=rec.get("discount", 0.0),
+            additional_charges=rec.get("additional_charges", 0.0),
             total=rec["total"],
             category=rec["category"],
             payment_method=rec["payment_method"],
@@ -206,6 +208,8 @@ async def upload_raw_text(
         currency=rec["currency"],
         subtotal=rec["subtotal"],
         tax=rec["tax"],
+        discount=rec.get("discount", 0.0),
+        additional_charges=rec.get("additional_charges", 0.0),
         total=rec["total"],
         category=rec["category"],
         payment_method=rec["payment_method"],
@@ -341,7 +345,7 @@ async def review_and_update_expense(
     changes = {}
     for field in [
         "merchant", "document_type", "invoice_number", "transaction_date",
-        "currency", "subtotal", "tax", "total", "category",
+        "currency", "subtotal", "tax", "discount", "additional_charges", "total", "category",
         "payment_method", "description"
     ]:
         new_val = getattr(update, field)
@@ -357,7 +361,9 @@ async def review_and_update_expense(
 
     # Re-run reconciliation on newly edited amounts
     rec_status, rec_delta, rec_warnings = reconcile_financial_amounts(
-        item.subtotal, item.tax, item.total
+        item.subtotal, item.tax, item.total,
+        discount=item.discount,
+        additional_charges=item.additional_charges
     )
     item.reconciliation_status = rec_status
     item.reconciliation_delta = rec_delta
@@ -422,6 +428,8 @@ async def retry_extraction(expense_id: str, db: AsyncSession = Depends(get_db)):
     item.currency = rec["currency"]
     item.subtotal = rec["subtotal"]
     item.tax = rec["tax"]
+    item.discount = rec.get("discount", 0.0)
+    item.additional_charges = rec.get("additional_charges", 0.0)
     item.total = rec["total"]
     item.category = rec["category"]
     item.payment_method = rec["payment_method"]
@@ -597,6 +605,8 @@ async def seed_demo_workspace(db: AsyncSession = Depends(get_db)):
             currency=rec["currency"] or item["expected"]["currency"],
             subtotal=rec["subtotal"] if rec["subtotal"] is not None else item["expected"]["subtotal"],
             tax=rec["tax"] if rec["tax"] is not None else item["expected"]["tax"],
+            discount=rec.get("discount", 0.0),
+            additional_charges=rec.get("additional_charges", 0.0),
             total=rec["total"] if rec["total"] is not None else item["expected"]["total"],
             category=rec["category"] or item["expected"]["category"],
             payment_method=rec["payment_method"] or item["expected"]["payment_method"],

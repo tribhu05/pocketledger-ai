@@ -28,6 +28,8 @@ class Expense(Base):
     currency = Column(String(10), nullable=False, default="USD")
     subtotal = Column(Float, nullable=True)
     tax = Column(Float, nullable=True)
+    discount = Column(Float, nullable=True, default=0.0)
+    additional_charges = Column(Float, nullable=True, default=0.0)
     total = Column(Float, nullable=True)
     category = Column(String(100), nullable=False, default="Other")
     payment_method = Column(String(100), nullable=True)
@@ -77,6 +79,8 @@ class Expense(Base):
             "currency": self.currency,
             "subtotal": self.subtotal,
             "tax": self.tax,
+            "discount": self.discount if self.discount is not None else 0.0,
+            "additional_charges": self.additional_charges if self.additional_charges is not None else 0.0,
             "total": self.total,
             "category": self.category,
             "payment_method": self.payment_method,
@@ -99,6 +103,17 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=As
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        def migrate_columns(sync_conn):
+            from sqlalchemy import inspect, text
+            inspector = inspect(sync_conn)
+            columns = [c["name"] for c in inspector.get_columns("expenses")]
+            if "discount" not in columns:
+                sync_conn.execute(text("ALTER TABLE expenses ADD COLUMN discount FLOAT DEFAULT 0.0"))
+            if "additional_charges" not in columns:
+                sync_conn.execute(text("ALTER TABLE expenses ADD COLUMN additional_charges FLOAT DEFAULT 0.0"))
+
+        await conn.run_sync(migrate_columns)
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:

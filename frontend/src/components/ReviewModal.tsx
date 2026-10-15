@@ -42,6 +42,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
     currency: expense.currency || 'USD',
     subtotal: expense.subtotal !== null ? expense.subtotal : undefined,
     tax: expense.tax !== null ? expense.tax : undefined,
+    discount: expense.discount !== null && expense.discount !== undefined ? expense.discount : 0,
+    additional_charges: expense.additional_charges !== null && expense.additional_charges !== undefined ? expense.additional_charges : 0,
     total: expense.total !== null ? expense.total : undefined,
     category: expense.category || 'Other',
     payment_method: expense.payment_method || '',
@@ -54,16 +56,20 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
 
-  // Live Math Reconciliation check
+  // Live Math Reconciliation check: expectedTotal = subtotal + tax - discount + additionalCharges
   const sub = formData.subtotal !== undefined && formData.subtotal !== null ? Number(formData.subtotal) : null;
   const tx = formData.tax !== undefined && formData.tax !== null ? Number(formData.tax) : null;
+  const disc = formData.discount !== undefined && formData.discount !== null ? Number(formData.discount) : 0;
+  const addCharges = formData.additional_charges !== undefined && formData.additional_charges !== null ? Number(formData.additional_charges) : 0;
   const tot = formData.total !== undefined && formData.total !== null ? Number(formData.total) : null;
 
   let liveMismatch = false;
   let liveDelta = 0;
-  if (tot !== null && sub !== null && tx !== null) {
-    const calc = Number((sub + tx).toFixed(2));
-    liveDelta = Number((tot - calc).toFixed(2));
+  let expectedTotal: number | null = null;
+  if (tot !== null && sub !== null) {
+    const taxVal = tx !== null ? tx : 0;
+    expectedTotal = Number((sub + taxVal - disc + addCharges).toFixed(2));
+    liveDelta = Number((tot - expectedTotal).toFixed(2));
     if (Math.abs(liveDelta) > 0.05) {
       liveMismatch = true;
     }
@@ -80,6 +86,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
         transaction_date: formData.transaction_date ? formData.transaction_date.trim() : null,
         subtotal: sub !== null && !isNaN(sub) ? sub : null,
         tax: tx !== null && !isNaN(tx) ? tx : null,
+        discount: disc !== null && !isNaN(disc) ? Math.max(0, disc) : 0,
+        additional_charges: addCharges !== null && !isNaN(addCharges) ? Math.max(0, addCharges) : 0,
         total: tot !== null && !isNaN(tot) ? tot : null,
         status: confirmedStatus,
       };
@@ -108,6 +116,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
         currency: res.currency || 'USD',
         subtotal: res.subtotal !== null ? res.subtotal : undefined,
         tax: res.tax !== null ? res.tax : undefined,
+        discount: res.discount !== null && res.discount !== undefined ? res.discount : 0,
+        additional_charges: res.additional_charges !== null && res.additional_charges !== undefined ? res.additional_charges : 0,
         total: res.total !== null ? res.total : undefined,
         category: res.category || 'Other',
         payment_method: res.payment_method || '',
@@ -237,15 +247,49 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
               <span className="text-xs text-slate-400">Review and confirm below</span>
             </div>
 
-            {/* Math Discrepancy Warning Banner */}
-            {liveMismatch && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start space-x-2.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-semibold text-rose-900">Reconciliation Mismatch:</strong> Subtotal ({sub?.toFixed(2)}) + Tax ({tx?.toFixed(2)}) = {(Number(sub) + Number(tx)).toFixed(2)}, which does not match Total ({tot?.toFixed(2)}). Discrepancy of {Math.abs(liveDelta).toFixed(2)}. Please verify before confirming!
+            {/* Math Discrepancy Warning Banner with Full Breakdown */}
+            {liveMismatch ? (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-1.5">
+                <div className="flex items-center space-x-2 font-semibold text-rose-900">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Reconciliation Mismatch: Difference of {Math.abs(liveDelta).toFixed(2)}</span>
+                </div>
+                <div className="text-[11px] font-mono bg-white/80 p-2.5 rounded-lg border border-rose-200/60 leading-relaxed text-slate-800 space-y-1">
+                  <div className="flex flex-wrap items-center gap-x-2 text-slate-700">
+                    <span>Subtotal: <strong>{sub?.toFixed(2) ?? '0.00'}</strong></span>
+                    <span>+ Tax: <strong>{(tx ?? 0).toFixed(2)}</strong></span>
+                    <span>- Discount: <strong className="text-emerald-700">{disc.toFixed(2)}</strong></span>
+                    <span>+ Charges: <strong>{addCharges.toFixed(2)}</strong></span>
+                  </div>
+                  <div className="border-t border-slate-200 pt-1 flex items-center justify-between font-semibold">
+                    <span>Expected Total: <span className="text-indigo-700 font-bold">{expectedTotal?.toFixed(2)}</span></span>
+                    <span>Stated Total: <span className="text-rose-700 font-bold">{tot?.toFixed(2) ?? '--'}</span></span>
+                    <span>Delta: <span className="text-rose-700 font-bold">{Math.abs(liveDelta).toFixed(2)}</span></span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-rose-700">Please review source receipt and adjust fields before confirming.</p>
+              </div>
+            ) : tot !== null && sub !== null ? (
+              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-900 space-y-1 font-mono">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 font-semibold text-emerald-800">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Reconciliation Balanced</span>
+                  </div>
+                  <span className="text-emerald-700 font-semibold uppercase text-[10px] tracking-wider bg-emerald-100/60 px-1.5 py-0.5 rounded">
+                    Difference: 0.00
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-2">
+                  <span>Sub: {sub.toFixed(2)}</span>
+                  <span>+ Tax: {(tx ?? 0).toFixed(2)}</span>
+                  {disc > 0 && <span className="text-emerald-700">- Disc: {disc.toFixed(2)}</span>}
+                  {addCharges > 0 && <span>+ Charges: {addCharges.toFixed(2)}</span>}
+                  <span>= Expected: <strong>{expectedTotal?.toFixed(2)}</strong></span>
+                  <span>vs Stated: <strong>{tot.toFixed(2)}</strong></span>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Form Fields */}
             <div className="space-y-4 text-xs">
@@ -292,8 +336,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
                 </div>
               </div>
 
-              {/* Amounts Grid: Currency, Subtotal, Tax, Total */}
-              <div className="grid grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              {/* Amounts Grid: Currency, Subtotal, Tax, Discount, Additional Charges, Total */}
+              <div className="grid grid-cols-3 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div>
                   <label className="block font-semibold text-slate-600 uppercase text-[10px] tracking-wider mb-1">
                     Currency
@@ -323,7 +367,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
 
                 <div>
                   <label className="block font-semibold text-slate-600 uppercase text-[10px] tracking-wider mb-1">
-                    Tax / VAT
+                    Tax / VAT / GST
                   </label>
                   <input
                     type="number"
@@ -336,8 +380,38 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ expense, onClose, onSa
                 </div>
 
                 <div>
+                  <label className="block font-semibold text-slate-600 uppercase text-[10px] tracking-wider mb-1">
+                    Discount (-)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.discount ?? ''}
+                    onChange={(e) => setFormData({ ...formData, discount: e.target.value !== '' ? Math.max(0, parseFloat(e.target.value)) : undefined })}
+                    className="w-full px-2 py-1.5 rounded-md border border-slate-200 font-mono text-xs text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 uppercase text-[10px] tracking-wider mb-1">
+                    Charges / Tip (+)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.additional_charges ?? ''}
+                    onChange={(e) => setFormData({ ...formData, additional_charges: e.target.value !== '' ? Math.max(0, parseFloat(e.target.value)) : undefined })}
+                    className="w-full px-2 py-1.5 rounded-md border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
                   <label className="block font-semibold text-emerald-800 uppercase text-[10px] tracking-wider mb-1">
-                    Total
+                    Stated Total
                   </label>
                   <input
                     type="number"

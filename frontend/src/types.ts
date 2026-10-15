@@ -12,6 +12,8 @@ export interface Expense {
   currency: string;
   subtotal: number | null;
   tax: number | null;
+  discount?: number | null;
+  additional_charges?: number | null;
   total: number | null;
   category: string;
   payment_method: string | null;
@@ -62,6 +64,8 @@ export interface ReviewUpdateRequest {
   currency?: string;
   subtotal?: number | null;
   tax?: number | null;
+  discount?: number | null;
+  additional_charges?: number | null;
   total?: number | null;
   category?: string;
   payment_method?: string | null;

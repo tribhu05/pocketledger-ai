@@ -22,6 +22,8 @@ class ExtractedReceiptFields(BaseModel):
     currency: str = Field("USD", description="3-letter currency code (e.g. USD, EUR, GBP, CAD, INR).")
     subtotal: Optional[float] = Field(None, description="Monetary subtotal before tax.")
     tax: Optional[float] = Field(None, description="Monetary tax/VAT/GST amount.")
+    discount: Optional[float] = Field(None, description="Monetary discount or promotional deduction if explicitly present.")
+    additional_charges: Optional[float] = Field(None, description="Monetary additional charges, tips, or service fees.")
     total: Optional[float] = Field(None, description="Monetary grand total.")
     category: str = Field("Other", description="Expense category from standard taxonomy.")
     payment_method: Optional[str] = Field(None, description="Payment method or card hint if present.")
@@ -37,6 +39,8 @@ class ReviewUpdateRequest(BaseModel):
     currency: Optional[str] = None
     subtotal: Optional[float] = None
     tax: Optional[float] = None
+    discount: Optional[float] = None
+    additional_charges: Optional[float] = None
     total: Optional[float] = None
     category: Optional[str] = None
     payment_method: Optional[str] = None
@@ -57,6 +61,8 @@ class ExpenseResponse(BaseModel):
     currency: str
     subtotal: Optional[float]
     tax: Optional[float]
+    discount: Optional[float] = 0.0
+    additional_charges: Optional[float] = 0.0
     total: Optional[float]
     category: str
     payment_method: Optional[str]

@@ -20,6 +20,8 @@ Output MUST be a valid JSON object matching this exact schema:
   "currency": "string - 3-letter currency code (USD, EUR, GBP, CAD, INR, etc.)",
   "subtotal": "number or null - Pre-tax amount",
   "tax": "number or null - Tax/VAT/GST amount",
+  "discount": "number or null - Discount, coupon, or promotional reduction if explicitly present on document (positive number)",
+  "additional_charges": "number or null - Tips, service fees, or delivery surcharge if explicitly present on document",
   "total": "number or null - Grand total amount",
   "category": "one of: {', '.join(FREELANCE_CATEGORIES)}",
   "payment_method": "string or null - e.g. Visa 1234, Cash, Bank Transfer",
@@ -29,7 +31,7 @@ Output MUST be a valid JSON object matching this exact schema:
 
 CRITICAL RULES:
 1. NEVER invent, hallucinate, or assume missing values. If not visible in text, use null.
-2. The subtotal, tax, and total fields MUST be numeric (or null), never strings.
+2. The subtotal, tax, discount, additional_charges, and total fields MUST be numeric (or null), never strings.
 3. If total amount is ambiguous, report null and add a note in warnings.
 4. Output ONLY valid JSON. Do not wrap in markdown or commentary."""
 

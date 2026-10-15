@@ -119,11 +119,15 @@ def normalize_category(category_raw: Optional[str], text_context: str = "") -> s
 def reconcile_financial_amounts(
     subtotal: Optional[float],
     tax: Optional[float],
-    total: Optional[float]
+    total: Optional[float],
+    discount: Optional[float] = 0.0,
+    additional_charges: Optional[float] = 0.0,
+    tolerance: float = 0.05
 ) -> Tuple[str, Optional[float], List[str]]:
     """
-    Perform deterministic math reconciliation on monetary totals.
-    subtotal + tax == total (with tolerance 0.05).
+    Perform deterministic math reconciliation on monetary totals using the formula:
+    expectedTotal = subtotal + tax - discount + additionalCharges
+    (with configurable currency rounding tolerance, default 0.05).
     """
     warnings: List[str] = []
 
@@ -134,27 +138,37 @@ def reconcile_financial_amounts(
     if total < 0:
         warnings.append(f"Negative total amount detected ({total:.2f}). Please verify if refund or credit memo.")
 
-    if subtotal is not None and tax is not None:
-        calc_total = round(subtotal + tax, 2)
-        diff = round(total - calc_total, 2)
+    # Guard negative discount or additional charges
+    if discount is not None and discount < 0:
+        warnings.append(f"Negative discount detected ({discount:.2f}). Discount should be non-negative.")
+
+    if additional_charges is not None and additional_charges < 0:
+        warnings.append(f"Negative additional charges detected ({additional_charges:.2f}).")
+
+    d_val = float(discount) if discount is not None else 0.0
+    c_val = float(additional_charges) if additional_charges is not None else 0.0
+
+    if subtotal is not None:
+        t_val = float(tax) if tax is not None else 0.0
+        expected_total = round(subtotal + t_val - d_val + c_val, 2)
+        diff = round(total - expected_total, 2)
         abs_diff = abs(diff)
 
-        if abs_diff <= 0.05:
+        breakdown_msg = (
+            f"Breakdown: Subtotal ({subtotal:.2f}) + Tax ({t_val:.2f}) - "
+            f"Discount ({d_val:.2f}) + Additional Charges ({c_val:.2f}) = "
+            f"Expected Total ({expected_total:.2f}) vs Stated Total ({total:.2f}), "
+            f"Difference: {abs_diff:.2f}"
+        )
+
+        if abs_diff <= tolerance:
+            if tax is None and d_val == 0.0 and c_val == 0.0:
+                warnings.append("Zero or missing tax reconciled with total.")
             return "reconciled", 0.0, warnings
         else:
-            msg = (
-                f"Reconciliation mismatch: Subtotal ({subtotal:.2f}) + Tax ({tax:.2f}) = {calc_total:.2f}, "
-                f"which differs from Total ({total:.2f}) by {abs_diff:.2f}. Please review source receipt."
-            )
+            msg = f"Reconciliation mismatch: {breakdown_msg}. Please review source receipt."
             warnings.append(msg)
             return "mismatch", diff, warnings
-
-    if subtotal is not None and tax is None:
-        # If subtotal == total, tax is likely 0
-        if round(abs(subtotal - total), 2) <= 0.05:
-            return "reconciled", 0.0, ["Zero or missing tax reconciled with total."]
-        else:
-            return "unverified", None, ["Subtotal present but tax not specified; amounts unverified."]
 
     return "unverified", None, []
 
@@ -181,10 +195,18 @@ def validate_and_normalize_record(
     # 4. Amounts sanitization
     subtotal = round(float(raw.subtotal), 2) if raw.subtotal is not None else None
     tax = round(float(raw.tax), 2) if raw.tax is not None else None
+    discount = round(float(raw.discount), 2) if raw.discount is not None else 0.0
+    additional_charges = round(float(raw.additional_charges), 2) if raw.additional_charges is not None else 0.0
     total = round(float(raw.total), 2) if raw.total is not None else None
 
     # 5. Math Reconciliation
-    rec_status, rec_delta, rec_warnings = reconcile_financial_amounts(subtotal, tax, total)
+    rec_status, rec_delta, rec_warnings = reconcile_financial_amounts(
+        subtotal=subtotal,
+        tax=tax,
+        total=total,
+        discount=discount,
+        additional_charges=additional_charges,
+    )
     warnings.extend(rec_warnings)
 
     # 6. Category normalization
@@ -206,6 +228,8 @@ def validate_and_normalize_record(
         "currency": norm_currency,
         "subtotal": subtotal,
         "tax": tax,
+        "discount": discount,
+        "additional_charges": additional_charges,
         "total": total,
         "category": norm_category,
         "payment_method": raw.payment_method.strip() if raw.payment_method else None,

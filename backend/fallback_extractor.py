@@ -10,8 +10,14 @@ GENERIC_HEADERS = {
 }
 
 def extract_amounts_heuristic(text: str) -> Dict[str, Optional[float]]:
-    """Scan text for Total, Subtotal, and Tax numbers using robust line-level keyword parsing."""
-    res: Dict[str, Optional[float]] = {"subtotal": None, "tax": None, "total": None}
+    """Scan text for Total, Subtotal, Tax, Discount, and Additional Charges using robust line-level keyword parsing."""
+    res: Dict[str, Optional[float]] = {
+        "subtotal": None,
+        "tax": None,
+        "discount": None,
+        "additional_charges": None,
+        "total": None,
+    }
     lines = text.split("\n")
 
     def parse_float_from_line(line: str) -> Optional[float]:
@@ -43,6 +49,18 @@ def extract_amounts_heuristic(text: str) -> Dict[str, Optional[float]]:
                 parsed = parse_float_from_line(stripped)
                 if parsed is not None:
                     res["tax"] = parsed
+
+        elif any(k in lower for k in ["discount", "coupon", "promo", "savings", "dis.", "rebate"]):
+            if res["discount"] is None:
+                parsed = parse_float_from_line(stripped)
+                if parsed is not None:
+                    res["discount"] = abs(parsed)
+
+        elif any(k in lower for k in ["service charge", "delivery fee", "gratuity", "tip", "surcharge"]):
+            if res["additional_charges"] is None:
+                parsed = parse_float_from_line(stripped)
+                if parsed is not None:
+                    res["additional_charges"] = abs(parsed)
 
         elif any(k in lower for k in ["grand total", "total due", "amount due", "balance due", "total amount", "total paid", "total:"]):
             if res["total"] is None:
@@ -153,6 +171,8 @@ def extract_with_fallback(document_text: str) -> ExtractedReceiptFields:
         currency=currency,
         subtotal=amounts["subtotal"],
         tax=amounts["tax"],
+        discount=amounts["discount"],
+        additional_charges=amounts["additional_charges"],
         total=amounts["total"],
         category=category,
         payment_method=None,

@@ -34,6 +34,8 @@ const mockExpense: Expense = {
   currency: 'USD',
   subtotal: 13.50,
   tax: 1.35,
+  discount: 0,
+  additional_charges: 0,
   total: 14.85,
   category: 'Meals & Entertainment',
   payment_method: 'Mastercard 9921',
@@ -136,5 +138,36 @@ describe('PocketLedger AI Frontend Tests', () => {
     expect(await screen.findByText(/Review & Confirm Document/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('Starbucks Coffee')).toBeInTheDocument();
     expect(screen.getByDisplayValue('14.85')).toBeInTheDocument();
+  });
+
+  it('displays discount field and balanced reconciliation banner in review modal', async () => {
+    const discountedExpense: Expense = {
+      ...mockExpense,
+      id: 'exp-disc',
+      subtotal: 2300,
+      tax: 414,
+      discount: 114,
+      additional_charges: 0,
+      total: 2600,
+      currency: 'INR',
+      reconciliation_status: 'reconciled',
+    };
+    vi.spyOn(api, 'fetchExpenses').mockResolvedValue([discountedExpense]);
+    vi.spyOn(api, 'fetchDashboard').mockResolvedValue({
+      ...mockDashboard,
+      recent_transactions: [discountedExpense],
+    });
+
+    render(<App />);
+
+    const reviewButtons = await screen.findAllByRole('button', { name: /Review/i });
+    fireEvent.click(reviewButtons[0]);
+
+    expect(await screen.findByText(/Review & Confirm Document/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue('2300')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('414')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('114')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('2600')).toBeInTheDocument();
+    expect(screen.getByText(/Reconciliation Balanced/i)).toBeInTheDocument();
   });
 });
