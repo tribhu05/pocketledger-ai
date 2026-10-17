@@ -46,7 +46,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Restrict CORS to local development origins
+# Restrict CORS to local development origins and Render deployment domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -57,10 +57,12 @@ app.add_middleware(
         "http://localhost:8000",
         "http://127.0.0.1:8000",
     ],
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 def sanitize_filename(name: str) -> str:
     """Strip dangerous characters to prevent path traversal."""

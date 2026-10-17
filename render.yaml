@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: pocketledger-ai
+    env: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /api/status
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: GEMMA_MODEL
+        value: gemma2:2b
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
