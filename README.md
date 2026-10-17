@@ -9,6 +9,7 @@
 [![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%2B%20SQLite-009688.svg)](https://fastapi.tiangolo.com)
 [![Frontend: React + Vite](https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61DAFB.svg)](https://vitejs.dev)
 [![Tests: Pytest & Vitest](https://img.shields.io/badge/Tests-14%20Passed%20(100%25)-brightgreen.svg)]()
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tribhu05/pocketledger-ai)
 
 ---
 
