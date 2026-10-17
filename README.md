@@ -101,6 +101,19 @@ npm run dev
 ```
 Open **[http://localhost:5173](http://localhost:5173)** in your browser.
 
+### Step 4 (Optional): Deploy to Render (Hosted Demo)
+
+You can deploy a hosted live demo directly to [Render](https://render.com) using the included multi-stage Dockerfile and `render.yaml` Blueprint:
+
+1. Push or fork this repository: `https://github.com/tribhu05/pocketledger-ai`.
+2. In the [Render Dashboard](https://dashboard.render.com), click **New +** -> **Blueprint**.
+3. Select your `pocketledger-ai` repository (Render automatically reads `render.yaml`).
+4. Click **Apply**. Render builds the React frontend, packages the FastAPI backend with Tesseract OCR, and spins up the live web service on your `.onrender.com` domain.
+
+> [!IMPORTANT]
+> **Privacy & Local vs. Cloud Deployment Disclosure:**  
+> When running locally, all receipts and Gemma 2B inference remain 100% on-device. On hosted cloud services like Render without an attached Ollama GPU node, PocketLedger AI transparently activates its **Deterministic Fallback Engine** (`deterministic_fallback`). The UI explicitly displays the active processing mode in the System Status panel so users always know whether processing occurred locally or via fallback.
+
 ---
 
 ## 6. How Can a Reviewer Test It in Under Five Minutes?
