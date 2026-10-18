@@ -1,86 +1,151 @@
 # PocketLedger AI
 
 > **"Your receipts. Your records. Your data stays yours."**  
-> A privacy-first, on-device expense assistant for freelancers that turns messy receipts and invoice PDFs into reviewable, audit-ready financial records using local open-weight AI.
+> A privacy-first, on-device financial assistant for freelancers that transforms messy receipts and invoice PDFs into reviewable, audit-ready expense records using Google's open-weight **Gemma 2B** via Ollama.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Model: Gemma 2B](https://img.shields.io/badge/Model-Gemma%202B%20Instruct-blue.svg)](https://ai.google.dev/gemma)
-[![Inference: Ollama](https://img.shields.io/badge/Inference-Ollama%20Local-black.svg)](https://ollama.ai)
+[![CI Test Suite](https://github.com/tribhu05/pocketledger-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/tribhu05/pocketledger-ai/actions/workflows/ci.yml)
+[![Tests: 23 Passed](https://img.shields.io/badge/Tests-23%20Passed%20(100%25)-brightgreen.svg)](docs/technical-evidence-report.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Model: Gemma 2B](https://img.shields.io/badge/AI%20Model-Google%20Gemma%202B-blue.svg)](https://ai.google.dev/gemma)
+[![Inference: Ollama](https://img.shields.io/badge/Inference-Ollama%20(Local)-black.svg)](https://ollama.ai)
 [![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%2B%20SQLite-009688.svg)](https://fastapi.tiangolo.com)
-[![Frontend: React + Vite](https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61DAFB.svg)](https://vitejs.dev)
-[![Tests: Pytest & Vitest](https://img.shields.io/badge/Tests-23%20Passed%20(100%25)-brightgreen.svg)]()
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tribhu05/pocketledger-ai)
-
-**[▶ Watch 50s Demo Video on YouTube](https://youtu.be/Uk_9aB7Z0xo?si=P0W50wuzLihcNeFz)** | **[Direct MP4](https://github.com/tribhu05/pocketledger-ai/raw/master/docs/video/PocketLedger_AI_Demo_50s.mp4)** | **[Live Web Demo](https://pocketledger-ai.onrender.com)** | **[Technical Evidence Report](docs/technical-evidence-report.md)**
+[![Frontend: React 19](https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61DAFB.svg)](frontend/)
+[![Deploy on Render](https://img.shields.io/badge/Hosted%20On-Render-46E3B7.svg)](https://pocketledger-ai.onrender.com)
 
 ---
 
-![PocketLedger AI Interactive Walkthrough](docs/screenshots/pocketledger-workflow.gif)
+### Quick Links & Navigation
+
+* 🌐 **[Live Hosted Application (Render)](https://pocketledger-ai.onrender.com)**
+* 🎥 **[50-Second Video Walkthrough (YouTube)](https://youtu.be/Uk_9aB7Z0xo)**
+* 📝 **[DEV.to Submission Article](docs/devto-hacktoberfest-week2-final.md)**
+* 🔬 **[Technical Evidence & Test Audit](docs/technical-evidence-report.md)**
+* 📊 **[Synthetic Benchmark Report](docs/benchmark_report.md)**
 
 ---
 
-## 1. What Problem Does This Solve?
+## 📖 About PocketLedger AI
 
-Freelancers, independent developers, and consultants collect hundreds of receipts and invoice PDFs every quarter—from cloud hosting (AWS, Hetzner, Vercel) and SaaS subscriptions (GitHub, Figma, Zoom) to travel, coffee meetings, and hardware purchases.
+**PocketLedger AI** is an open-source, privacy-preserving bookkeeping assistant built specifically for freelance developers, independent consultants, and solo creators.
 
-Existing options force a frustrating dilemma:
-1. **Manual Spreadsheets:** Tedious, error-prone, hours wasted transcribing dates, vendor names, currencies, and tax line items.
-2. **Cloud Receipt Scanners:** Require uploading sensitive financial documents—exposing client names, hourly rates, home billing addresses, and credit card hints to third-party cloud AI vendors.
+Every quarter, independent professionals face the tedious chore of organizing receipts from cloud hosting (AWS, Vercel, Hetzner), SaaS subscriptions (GitHub, Figma, Notion), coffee meetings, travel, and client expenses. Existing solutions force an unfair choice:
+1. **Manual Data Entry:** Spending hours transcribing dates, currencies, and tax totals into spreadsheets.
+2. **Cloud AI Scanners:** Uploading sensitive client invoices, home billing addresses, and payment details to third-party proprietary AI APIs.
 
-**PocketLedger AI eliminates this tradeoff.** It runs Google's open-weight **Gemma 2B** locally via Ollama. It extracts merchants, transaction dates, subtotals, taxes, and totals directly on your laptop, reconciles the math deterministically, and provides a full audit history without a single byte of financial data leaving your device.
+**PocketLedger AI eliminates this dilemma with a three-layer principle:**
 
----
+> **AI reads the document. Deterministic code checks the numbers. Humans approve the record.**
 
-## 2. Who Pays for This Kind of Solution?
-
-- **Freelance Software Engineers & Designers:** Managing dozens of billable tool subscriptions across multiple clients who cannot risk leaking client names or proprietary NDA projects.
-- **Independent Consultants & Creators:** Who file Schedule C (or VAT/GST) and need classified expense totals without paying $30+/month for enterprise accounting suites.
-- **Privacy-Conscious Small Businesses:** Medical, legal, and financial contractors whose professional regulations prohibit uploading documents to unvetted cloud AI APIs.
-- **Proposed Commercial Tier:** A proposed **$29 one-time purchase** for a packaged native desktop application with an automated folder watcher, custom tax categories, and priority support (see our in-app Pricing Experiment).
+1. **Local Open-Weight AI:** Runs Google's **Gemma 2B Instruct** via local Ollama. Document text is extracted and parsed into structured JSON strictly on your machine—zero telemetry, zero cloud network egress.
+2. **Deterministic Financial Reconciliation:** Extracted numbers are verified using Python `Decimal` arithmetic. It flags discrepancies (`Subtotal + Tax - Discount + Charges != Total`) rather than hallucinating or silently accepting arithmetic errors.
+3. **Human-in-the-Loop Review:** An intuitive split-screen modal allows users to inspect the original receipt side-by-side with extracted fields, make corrections, and explicitly approve records with complete JSON diff tracking.
+4. **Multi-Currency Segregation & Defensive CSV:** Expenses in USD, EUR, GBP, and INR remain strictly segregated in tax summaries, and CSV exports apply formula injection sanitization against spreadsheet exploits.
 
 ---
 
-## 3. Why Is Open-Weight AI Important?
+## 📸 Product Walkthrough
 
-Closed-source AI APIs introduce three fatal flaws for financial bookkeeping:
-1. **Privacy & Confidentiality Violations:** Financial documents contain banking details and client confidential data that cannot be sent to unvetted third parties.
-2. **Vendor Lock-in & Sudden Price Changes:** Cloud API costs scale with usage, and models can be altered or deprecated without notice.
-3. **Offline Reliability:** Open-weight models like **Gemma 2B** run completely offline on trains, flights, or off-grid co-working locations. The model weights are transparent, inspectable, and run indefinitely on your own hardware.
+### 1. Document Extraction & Split-Screen Review
+Upload digital PDFs, scanned receipts, or raw text. Gemma extracts merchant, date, amounts, and category; deterministic math verifies reconciliation:
 
----
+![PocketLedger AI Extraction and Review Workflow](docs/screenshots/pocketledger-extraction-review.gif)
 
-## 4. What Runs Locally?
+### 2. Multi-Currency Ledger & Injection-Safe CSV Export
+Filter by status, search by merchant, and export tax-ready summaries grouped by currency:
 
-Everything in the default workflow runs 100% on-device:
-- **Inference Engine:** Google Gemma 2B Instruct (`gemma2:2b`) running via local [Ollama](https://ollama.ai) on `http://localhost:11434`.
-- **Text Extraction:** Native digital PDF parsing via `pypdf` and local image OCR via `Tesseract`.
-- **Backend API:** FastAPI running locally on `http://127.0.0.1:8000`.
-- **Database:** Local SQLite database stored at `./pocketledger.db`.
-- **File Storage:** Local disk storage in `./uploads/` bounded strictly by path-traversal guards.
-- **Frontend UI:** React + TypeScript + Vite running on `http://127.0.0.1:5173`.
+![PocketLedger AI Multi-Currency Ledger and Reports](docs/screenshots/pocketledger-ledger-export.gif)
 
 ---
 
-## 5. Complete Setup Process
+## 🌟 Key Features
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ and npm
-- [Ollama](https://ollama.ai)
+| Capability | What It Does | Why It Matters for Freelancers |
+|---|---|---|
+| **100% On-Device Privacy** | Local Gemma 2B via Ollama | Client NDA details & addresses never touch the cloud. |
+| **Exact Decimal Math** | Python `Decimal` reconciliation engine | Prevents binary floating-point rounding errors (`0.1 + 0.2 != 0.3`). |
+| **Discount & Surcharge Logic** | Computes `Subtotal + Tax - Discount + Surcharges` | Prevents missed discounts or miscalculated invoice totals. |
+| **Human-in-the-Loop Diffs** | Tracks `user_edits` old vs. new values in JSON | Maintains a defensible, auditable financial paper trail. |
+| **Multi-Currency Segregation** | Keeps USD, EUR, GBP, INR separate | Avoids misleading totals that blend un-converted currencies. |
+| **Formula Injection Defense** | Sanitizes `=`, `+`, `-`, `@`, `\t` prefixes in CSVs | Shields Excel/Numbers/Sheets users from malicious formula execution. |
+| **Transparent Fallback** | Deterministic regex fallback on cloud containers | Hosted evaluators can test the app without downloading 1.6 GB weights. |
 
-### Step 1: Install and Pull Gemma 2B
+---
+
+## 🏗️ Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph INGESTION["1. Document Ingestion"]
+        A["Receipt File / Digital PDF / Image / Text"]
+        B["Text Extraction Engine\n(pypdf & local Tesseract OCR)"]
+        A --> B
+    end
+
+    subgraph INFERENCE["2. Privacy Boundary (Local On-Device)"]
+        C["Extracted Raw Text"]
+        D["Google Gemma 2B Instruct\n(Ollama REST API :11434)"]
+        E["Defensive JSON Recovery Parser\n(4-Stage Markdown Cleaner & Pydantic Schema)"]
+        B --> C --> D --> E
+    end
+
+    subgraph VERIFICATION["3. Deterministic Verification"]
+        F["Python Decimal Reconciliation Engine\nExpected = Subtotal + Tax - Discount + Charges\n|Expected - Total| <= 0.05"]
+        E --> F
+    end
+
+    subgraph REVIEW["4. Human-in-the-Loop Review"]
+        G["Split-Screen UI Review Modal\nOriginal Document vs. Extracted Fields"]
+        H["Audit Trail & Field Diff Tracker\n({old_value, new_value})"]
+        F --> G --> H
+    end
+
+    subgraph PERSISTENCE["5. Storage & Export"]
+        I["Local SQLite Database\n(pocketledger.db)"]
+        J["Multi-Currency CSV Export\n(Formula-Injection Neutralization)"]
+        H --> I --> J
+    end
+```
+
+---
+
+## ⚖️ Local AI vs. Hosted Demo
+
+PocketLedger AI provides two deployment configurations:
+
+| Dimension | Local Mode (Workstation) | Hosted Demo (Render Cloud) |
+|---|---|---|
+| **Inference Engine** | Local Google Gemma 2B via Ollama | Deterministic Heuristic Fallback |
+| **Data Boundary** | 100% On-Device (Zero Network Egress) | Ephemeral Cloud Container |
+| **Reconciliation Math** | Python `Decimal` Engine | Python `Decimal` Engine |
+| **Review & Audit** | Full split-screen with diff tracking | Full split-screen with diff tracking |
+| **Persistence** | Persistent SQLite (`pocketledger.db`) | In-memory SQLite database |
+| **System Status Pill** | `gemma2_local` (Green) | `deterministic_fallback` (Amber) |
+| **Live Endpoint** | `http://localhost:8000/api/status` | `https://pocketledger-ai.onrender.com/api/status` |
+
+---
+
+## 🚀 Quickstart Guide
+
+### Option A: Local Full-Stack Setup (Recommended for Full Gemma Experience)
+
+#### Prerequisites
+- **Python:** 3.10+ (tested through 3.14)
+- **Node.js:** 18+ and npm
+- **Ollama:** [Install Ollama](https://ollama.ai)
+
+#### 1. Start Ollama and Pull Gemma 2B
 ```bash
 # 1. Start Ollama daemon
 ollama serve
 
-# 2. Pull the 1.6 GB Gemma 2B model weights
+# 2. Pull the Gemma 2B Instruct model (1.6 GB)
 ollama pull gemma2:2b
 ```
 
-### Step 2: Set Up Backend
+#### 2. Set Up and Run the Backend
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/pocketledger-ai.git
+git clone https://github.com/tribhu05/pocketledger-ai.git
 cd pocketledger-ai
 
 # Create virtual environment
@@ -89,17 +154,17 @@ python -m venv .venv
 # Activate virtual environment
 # Windows:
 .venv\Scripts\activate
-# Linux/macOS:
+# macOS/Linux:
 source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Start FastAPI backend
-uvicorn backend.main:app --port 8000
+uvicorn backend.main:app --port 8000 --reload
 ```
 
-### Step 3: Set Up Frontend
+#### 3. Set Up and Run the Frontend
 In a second terminal:
 ```bash
 cd frontend
@@ -108,102 +173,156 @@ npm run dev
 ```
 Open **[http://localhost:5173](http://localhost:5173)** in your browser.
 
-### Step 4 (Optional): Deploy to Render (Hosted Demo)
+---
 
-You can deploy a hosted live demo directly to [Render](https://render.com) using the included multi-stage Dockerfile and `render.yaml` Blueprint:
+### Option B: Docker Container Deployment
 
-1. Push or fork this repository: `https://github.com/tribhu05/pocketledger-ai`.
+You can run the entire unified application (React build + FastAPI + Tesseract) in a single container:
+
+```bash
+# Build the Docker image
+docker build -t pocketledger-ai .
+
+# Run container on port 10000
+docker run -p 10000:10000 -e PORT=10000 pocketledger-ai
+```
+Open **[http://localhost:10000](http://localhost:10000)** in your browser.
+
+---
+
+### Option C: Deploy to Render via Blueprint
+
+The repository contains a declarative [`render.yaml`](render.yaml) blueprint:
+1. Fork or push this repository to GitHub.
 2. In the [Render Dashboard](https://dashboard.render.com), click **New +** -> **Blueprint**.
-3. Select your `pocketledger-ai` repository (Render automatically reads `render.yaml`).
-4. Click **Apply**. Render builds the React frontend, packages the FastAPI backend with Tesseract OCR, and spins up the live web service on your `.onrender.com` domain.
+3. Select your repository. Render automatically configures the Docker runtime, sets health checks on `/api/status`, and provisions the service.
 
-> [!IMPORTANT]
-> **Privacy & Local vs. Cloud Deployment Disclosure:**  
-> When running locally, all receipts and Gemma 2B inference remain 100% on-device. On hosted cloud services like Render without an attached Ollama GPU node, PocketLedger AI transparently activates its **Deterministic Fallback Engine** (`deterministic_fallback`). The UI explicitly displays the active processing mode in the System Status panel so users always know whether processing occurred locally or via fallback.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tribhu05/pocketledger-ai)
 
 ---
 
-## 6. How Can a Reviewer Test It in Under Five Minutes?
+## 🧪 Automated Test Suite & Quality Verification
 
-We provide a zero-effort reviewer evaluation path:
+PocketLedger AI features **100% automated test pass rate** across backend unit/integration tests and frontend Vitest component tests:
 
-1. Launch the backend (`port 8000`) and frontend (`port 5173`).
-2. On the **Dashboard**, click **"Load Synthetic Demo Workspace"**.
-3. Eight realistic receipts across USD, EUR, and GBP will instantly populate the ledger.
-4. Go to **Ledger**, open the **Corner Bistro** receipt to see the live **Reconciliation Mismatch** warning (Subtotal + Tax != Total).
-5. Click **"Confirm & Approve Record"** to verify the human review workflow and inspect the audit trail.
-6. Click **Reports & CSV** -> **"Download Confirmed Expenses CSV"** to verify formula-injection neutralization (`'`) and currency segregation.
-7. Click **Privacy & Status** -> **"Run Live Benchmark"** to trigger live on-device evaluation across the synthetic corpus.
+```text
+$ pytest backend/tests/test_backend.py -v
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.1.1, pluggy-1.6.0
+collected 16 items
 
-*Detailed walkthrough: see [`docs/demo_script.md`](file:///e:/week%202/docs/demo_script.md).*
+backend/tests/test_backend.py::test_reconciliation_math PASSED           [  6%]
+backend/tests/test_backend.py::test_record_validation_backward_compatibility PASSED [ 12%]
+backend/tests/test_backend.py::test_date_normalization PASSED            [ 18%]
+backend/tests/test_backend.py::test_currency_normalization PASSED        [ 25%]
+backend/tests/test_backend.py::test_csv_injection_sanitization PASSED    [ 31%]
+backend/tests/test_backend.py::test_csv_export_multi_currency_segregation PASSED [ 37%]
+backend/tests/test_backend.py::test_deterministic_fallback PASSED        [ 43%]
+backend/tests/test_backend.py::test_api_status_endpoint PASSED           [ 50%]
+backend/tests/test_backend.py::test_raw_text_upload_and_review_workflow PASSED [ 56%]
+backend/tests/test_backend.py::test_discount_reconciliation_workflow PASSED [ 62%]
+backend/tests/test_backend.py::test_exact_decimal_arithmetic_drift_prevention PASSED [ 68%]
+backend/tests/test_backend.py::test_currency_anomaly_detection PASSED    [ 75%]
+backend/tests/test_backend.py::test_schema_currency_string_coercion PASSED [ 81%]
+backend/tests/test_backend.py::test_gemma_json_parser_robustness PASSED  [ 87%]
+backend/tests/test_backend.py::test_synthetic_scenarios_reconciliation PASSED [ 93%]
+backend/tests/test_backend.py::test_formula_injection_defense_suite PASSED [100%]
 
----
+============================= 16 passed in 10.34s =============================
 
-## 7. Architecture & System Flow
-
-```mermaid
-flowchart LR
-    A["Receipt (PDF/Image)"] --> B["Local OCR (pypdf / Tesseract)"]
-    B --> C["Extracted Text"]
-    C --> D["Gemma 2B (Local via Ollama)"]
-    D --> E["Structured JSON Output"]
-    E --> F["Deterministic Python Decimal Engine\n(Reconciliation, Date, Currency)"]
-    F --> G["Editable Split-Screen Review"]
-    G --> H["Confirmed SQLite Records"]
-    H --> I["Injection-Safe CSV Export"]
+$ cd frontend && npm test -- --run
+✓ src/test/App.test.tsx (7 tests) 1189ms
+Test Files  1 passed (1)
+     Tests  7 passed (7)
 ```
 
-### Deterministic Financial Reconciliation
-The mathematical reconciliation engine runs in Python Decimal to prevent floating-point drift:
+| Test Suite | Total Tests | Pass Rate | Key Aspects Verified |
+|---|:---:|:---:|---|
+| **Backend (Pytest)** | 16 | **100%** | Decimal reconciliation math, discount & surcharge logic, formula injection sanitization, multi-currency export segregation, JSON parsing recovery, date normalization. |
+| **Frontend (Vitest)** | 7 | **100%** | Status pills, dashboard KPI metrics, ledger search & filtering, split-screen review modal, CSV download triggers. |
+| **Total** | **23** | **100%** | Comprehensive full-stack test coverage. |
 
-$$\text{Expected Total} = \text{Subtotal} + \text{Tax} - \text{Discount} + \text{Additional Charges}$$
-$$\Delta = |\text{Stated Total} - \text{Expected Total}|$$
-
-- **Reconciled ($\Delta \le 0.05$):** Cent-level variance tolerated for rounding.
-- **Mismatch ($\Delta > 0.05$):** Flagged with a detailed explanation of the discrepancy.
-- **Missing Total:** Automatically flagged for mandatory human review.
-
-### Measured Benchmark Performance (10 Synthetic Real-World Scenarios)
-Evaluated across diverse freelancer documents (cloud bills, cafe meetings, SaaS subscriptions, office supplies, VAT European hosting, UK train transit, bistro tip reconciliation mismatch, smudged/illegible taxi receipt, Indian GST invoice with discount, express courier delivery surcharge):
-
-| Extraction Field | Gemma 2B Accuracy | Deterministic Fallback | Notes |
-|---|---|---|---|
-| **Merchant Name** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Correctly handles logos, headers, and noise |
-| **Total Amount** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Preserves null on illegible documents |
-| **Currency Detection** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Mapped $, €, £, ₹ to ISO codes |
-| **Document Type** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Differentiates invoices from receipts |
-| **Transaction Date** | **90.0%** (9 / 10) | **90.0%** (9 / 10) | Normalized to ISO-8601 YYYY-MM-DD |
-| **Average Latency** | **~34 seconds** | **0.58 ms** | Gemma on 4-core CPU vs Instant regex fallback |
-
-*Complete engineering audit and test proof: see [`docs/technical-evidence-report.md`](docs/technical-evidence-report.md).*
+*Detailed test report: see [`docs/technical-evidence-report.md`](docs/technical-evidence-report.md).*
 
 ---
 
-## 8. Known Limitations
+## 📊 Benchmark Evaluation
 
-- **CPU Latency:** On entry-level laptops without dedicated Nvidia GPUs, Gemma 2B takes ~30–35s per document. For high-volume batch processing, batch queues run asynchronously in the background.
-- **Heavily Degraded Paper:** Faded thermal receipts with physical creases require manual verification on the review screen.
-- **European Date Formatting:** While standard formats (YYYY-MM-DD, MM/DD/YYYY, Month DD) parse reliably, ambiguous numerical dates (e.g. `05/06/2026`) trigger a review warning to ensure accuracy.
+Tested across diverse synthetic freelancer expense scenarios (AWS hosting, Figma subscriptions, train tickets, cafe meetings, smudged receipts, and Indian GST invoices):
+
+| Evaluation Dimension | Local Gemma 2B (Ollama) | Deterministic Fallback | Notes |
+|---|:---:|:---:|---|
+| **Hardware** | AMD Ryzen 3 7320U (8 GB RAM) | Python in-memory | Open-weight local LLM vs. regex parser |
+| **Merchant Name** | **8 / 8 correct** (100%) | **10 / 10 correct** (100%) | Accurately isolates merchant name |
+| **Total Amount** | **8 / 8 correct** (100%) | **10 / 10 correct** (100%) | Preserves `null` when receipt total is unreadable |
+| **Currency** | **8 / 8 correct** (100%) | **10 / 10 correct** (100%) | Converts $, €, £, ₹ to standard ISO codes |
+| **Document Type** | **8 / 8 correct** (100%) | **10 / 10 correct** (100%) | Distinguishes invoices from receipts |
+| **Transaction Date** | **7 / 8 correct** (87.5%) | **9 / 10 correct** (90%) | Normalized to ISO-8601 (YYYY-MM-DD) |
+| **Average Latency** | **34.1 s** | **0.58 ms** | Local on-device CPU execution |
+
+*Complete benchmark methodology: see [`docs/benchmark_report.md`](docs/benchmark_report.md).*
 
 ---
 
-## 9. How Can Someone Contribute?
+## 📁 Repository Structure
 
-We welcome open-source contributions!
-1. Check existing issues or open a discussion in [GitHub Issues](https://github.com/your-username/pocketledger-ai/issues).
-2. Read [`CONTRIBUTING.md`](file:///e:/week%202/CONTRIBUTING.md) for code style, test commands, and architectural principles.
-3. Review [`SECURITY.md`](file:///e:/week%202/SECURITY.md) for our threat model and CSV injection defense rules.
-4. Run all test suites before submitting a pull request:
+```text
+pocketledger-ai/
+├── .github/
+│   ├── workflows/ci.yml           # Automated CI running Pytest & Vitest
+│   ├── ISSUE_TEMPLATE/            # Bug report and feature request templates
+│   └── pull_request_template.md   # Standardized PR checklist
+├── backend/
+│   ├── config.py                  # Pydantic environment configuration
+│   ├── database.py                # SQLite database session and models
+│   ├── demo_data.py               # 10 realistic synthetic test scenarios
+│   ├── export.py                  # Defensive CSV export & injection sanitizer
+│   ├── fallback_extractor.py      # Deterministic heuristic fallback parser
+│   ├── gemma_extractor.py         # Ollama Gemma 2B client & 4-stage JSON parser
+│   ├── main.py                    # FastAPI endpoints & static file server
+│   ├── ocr.py                     # pypdf extraction & local Tesseract OCR
+│   ├── schemas.py                 # Pydantic schemas & strict type coercion
+│   ├── validator.py               # Python Decimal financial reconciliation math
+│   └── tests/test_backend.py      # 16 automated backend unit and integration tests
+├── frontend/
+│   ├── src/
+│   │   ├── components/            # ReviewModal, StatusPill, LedgerTable, etc.
+│   │   ├── test/App.test.tsx      # 7 automated Vitest frontend tests
+│   │   ├── types.ts               # Synchronized TypeScript interfaces
+│   │   └── App.tsx                # Main single-page application
+│   ├── package.json               # React 19 + TypeScript + Vite + Tailwind CSS
+│   └── vite.config.ts             # Vite build configuration & test setup
+├── docs/
+│   ├── screenshots/               # Verified UI screenshots and product GIFs
+│   ├── benchmark_report.md        # Detailed synthetic benchmark report
+│   ├── technical-evidence-report.md # Comprehensive engineering evidence audit
+│   └── devto-hacktoberfest-week2-final.md # Complete DEV.to challenge submission
+├── Dockerfile                     # Multi-stage production container build
+├── render.yaml                    # Infrastructure-as-Code Blueprint for Render
+├── requirements.txt               # Locked Python dependencies
+├── CONTRIBUTING.md                # Contribution guidelines and setup instructions
+├── CODE_OF_CONDUCT.md            # Contributor Code of Conduct
+├── SECURITY.md                    # Threat model and vulnerability reporting
+└── LICENSE                        # MIT Open Source License
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community!
+1. Check existing issues or open a new one in [GitHub Issues](https://github.com/tribhu05/pocketledger-ai/issues).
+2. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for code conventions and testing protocols.
+3. Review [`SECURITY.md`](SECURITY.md) for our privacy boundary and threat model.
+4. Verify all tests pass before submitting a PR:
    ```bash
-   # Backend
    python -m pytest backend/tests/test_backend.py -v
-   # Frontend
-   cd frontend && npx vitest run && npm run build
+   cd frontend && npm run lint && npx vitest run && npm run build
    ```
 
 ---
 
-## 10. License & Third-Party Terms
+## 📜 License
 
-- **Application Software:** Released under the **[MIT License](file:///e:/week%202/LICENSE)**.
-- **Model Weights:** When using Google's open-weight Gemma model (`gemma2:2b`), model weights and outputs are subject to the **[Gemma Terms of Use](https://ai.google.dev/gemma/terms)** and Google Responsible AI policies.
+* **Application Code:** Licensed under the **[MIT License](LICENSE)**.
+* **Gemma Model:** Usage of Google's Gemma model weights is subject to the **[Gemma Terms of Use](https://ai.google.dev/gemma/terms)** and Google Responsible AI policies.

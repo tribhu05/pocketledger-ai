@@ -20,7 +20,7 @@ Thank you for your interest in contributing to PocketLedger AI! We are building 
 ### Backend Setup
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/pocketledger-ai.git
+git clone https://github.com/tribhu05/pocketledger-ai.git
 cd pocketledger-ai
 
 # Create virtual environment
