@@ -151,8 +151,8 @@ I didn't want an LLM's plausible-looking answer to become the source of truth fo
 
 PocketLedger's reconciliation rule is:
 
-$$\text{Expected Total} = \text{Subtotal} + \text{Tax} - \text{Discount} + \text{Additional Charges}$$
-$$\Delta = |\text{Stated Total} - \text{Expected Total}|$$
+> **Expected Total = Subtotal + Tax − Discount + Additional Charges**  
+> **Difference = |Stated Total − Expected Total|**
 
 The implementation uses Python's `Decimal` for monetary arithmetic and a configured rounding tolerance of ₹0.05, or the equivalent amount in the relevant currency:
 
@@ -219,7 +219,7 @@ For example:
 | Discount | ₹114.00 |
 | **Expected total** | **₹2,600.00** |
 | **Stated total** | **₹2,600.00** |
-| **Reconciliation Status** | **Reconciled ($\Delta = 0.00$)** |
+| **Reconciliation Status** | **Reconciled (Difference = 0.00)** |
 
 The arithmetic is straightforward:
 
@@ -444,9 +444,16 @@ I'm grateful that Nitu took the time to test an early version. His feedback enco
 
 ## Prize Categories
 
-PocketLedger AI is intended for the **Side Hustle** theme because it explores a specific problem, a potential customer group, and a possible paid product.
+### Primary Category: Side Hustle
+PocketLedger AI was built specifically for the **Side Hustle** prompt. It tackles a concrete administrative pain point experienced by independent developers, freelancers, and solo consultants: organizing sensitive receipts and business expenses without sacrificing client confidentiality or paying expensive monthly accounting SaaS fees.
 
-I have not claimed additional partner categories here. Any additional category should be included only after checking the official challenge rules and confirming that the project qualifies.
+### Partner Category: Best Use of Render
+PocketLedger AI is entered for the **Best Use of Render** prize track:
+
+- **Live Production Deployment:** [https://pocketledger-ai.onrender.com](https://pocketledger-ai.onrender.com)
+- **Declarative Infrastructure Blueprint:** The deployment is managed via [`render.yaml`](https://github.com/tribhu05/pocketledger-ai/blob/master/render.yaml) with continuous deployment, health check routing (`/api/status`), and configured environment variables.
+- **Unified Multi-Stage Docker Architecture:** The Render service runs a multi-stage Docker build that compiles the React 19 / TypeScript frontend, installs system-level Tesseract OCR (`tesseract-ocr`, `libtesseract-dev`), bundles the FastAPI backend, and serves the entire unified application on a single web service.
+- **Cloud-Resilient Fallback Design:** In a cloud container environment where a local Ollama daemon is absent, the application detects the host environment and activates its deterministic heuristic fallback parser. This guarantees that hackathon judges and evaluators have zero setup friction—they can immediately test document intake, reconciliation math, review editing, and CSV export without needing to configure or download local LLM weights.
 
 ---
 
