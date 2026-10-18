@@ -71,40 +71,86 @@ Filter by status, search by merchant, and export tax-ready summaries grouped by 
 
 ---
 
-## 🏗️ Architecture & Data Flow
+## 🏗️ System Architecture & Data Flow
+
+PocketLedger AI enforces a strict **On-Device Privacy Boundary**: raw financial documents and parsed entities never leave the developer's laptop.
 
 ```mermaid
-flowchart TD
-    subgraph INGESTION["1. Document Ingestion"]
-        A["Receipt File / Digital PDF / Image / Text"]
-        B["Text Extraction Engine\n(pypdf & local Tesseract OCR)"]
-        A --> B
+flowchart TB
+    subgraph PRESENTATION["1. Client Presentation Layer (Browser)"]
+        UI["React 19 + TypeScript + Vite SPA"]
+        Dashboard["Dashboard & Metric Cards"]
+        Inbox["Document Upload Inbox\n(PDF / Image / Raw Text)"]
+        ReviewModal["Split-Screen Review Canvas\n(Original Receipt vs. Extracted Fields)"]
+        Ledger["Multi-Currency Ledger & Filter Search"]
+        StatusPill["System Status Indicator\n(gemma2_local vs. deterministic_fallback)"]
     end
 
-    subgraph INFERENCE["2. Privacy Boundary (Local On-Device)"]
-        C["Extracted Raw Text"]
-        D["Google Gemma 2B Instruct\n(Ollama REST API :11434)"]
-        E["Defensive JSON Recovery Parser\n(4-Stage Markdown Cleaner & Pydantic Schema)"]
-        B --> C --> D --> E
+    subgraph GATEWAY["2. Application Gateway & API Layer (FastAPI)"]
+        Router["FastAPI REST Router (:8000 / :10000)"]
+        SecGuards["Path Traversal & Size Guards (<= 15 MB)"]
+        Endpoints["Endpoints: /api/upload • /api/review/{id} • /api/status • /api/export/csv"]
     end
 
-    subgraph VERIFICATION["3. Deterministic Verification"]
-        F["Python Decimal Reconciliation Engine\nExpected = Subtotal + Tax - Discount + Charges\n|Expected - Total| <= 0.05"]
-        E --> F
+    subgraph PIPELINE["3. Document Extraction Pipeline"]
+        DocRouter{"MIME Type Detection"}
+        PDFEngine["pypdf Digital Vector Extractor\n(Invoices: AWS, Stripe, GitHub)"]
+        OCREngine["Tesseract OCR Engine\n(Physical paper receipts)"]
+        TextNorm["Text Normalizer & Encoding Cleaner"]
     end
 
-    subgraph REVIEW["4. Human-in-the-Loop Review"]
-        G["Split-Screen UI Review Modal\nOriginal Document vs. Extracted Fields"]
-        H["Audit Trail & Field Diff Tracker\n({old_value, new_value})"]
-        F --> G --> H
+    subgraph PRIVACY_BOUNDARY["4. Intelligence & Privacy Boundary (100% On-Device)"]
+        Dispatcher{"Model Dispatcher\n(Ollama Probe)"}
+        
+        subgraph LOCAL_MODE["Local Mode (Default)"]
+            Ollama["Local Ollama Daemon (:11434)"]
+            Gemma["Google Gemma 2B Instruct\n(gemma2:2b open-weight model)"]
+        end
+
+        subgraph FALLBACK_MODE["Hosted Cloud Fallback"]
+            Fallback["Deterministic Heuristic Parser\n(Zero-friction evaluation on Render)"]
+        end
+
+        JSONParser["4-Stage Defensive JSON Recovery Parser\nMarkdown Cleaner • Brace Extractor • Pydantic Schema Coercion"]
     end
 
-    subgraph PERSISTENCE["5. Storage & Export"]
-        I["Local SQLite Database\n(pocketledger.db)"]
-        J["Multi-Currency CSV Export\n(Formula-Injection Neutralization)"]
-        H --> I --> J
+    subgraph VALIDATION["5. Deterministic Verification & Reconciliation"]
+        DecimalEngine["Python Decimal Engine\nExact cent precision (No IEEE-754 float drift)"]
+        ReconcileRule["Reconciliation Math Check:\nExpected = Subtotal + Tax - Discount + Charges\nVariance Delta = |Stated - Expected|"]
+        StatusClassifier{"Status Classifier"}
+        Reconciled["Status: reconciled (Delta <= 0.05)"]
+        Mismatch["Status: mismatch (Delta > 0.05)"]
+        Unverified["Status: unverified (Missing Total)"]
     end
+
+    subgraph PERSISTENCE["6. Persistence, Audit & Defensive Export"]
+        AuditDiff["Audit Trail & Field Diff Tracker\nRecords JSON diff of manual user edits"]
+        SQLiteDB[("SQLite Database\npocketledger.db / :memory:")]
+        CSVExport["Defensive CSV Generator\nMulti-currency segregation & formula injection guard"]
+    end
+
+    %% Wiring
+    Inbox --> Router --> SecGuards --> Endpoints --> DocRouter
+    DocRouter -->|application/pdf| PDFEngine --> TextNorm
+    DocRouter -->|image/png, image/jpeg| OCREngine --> TextNorm
+    TextNorm --> Dispatcher
+
+    Dispatcher -->|Ollama Available| Ollama --> Gemma --> JSONParser
+    Dispatcher -->|Ollama Offline| Fallback --> JSONParser
+
+    JSONParser --> DecimalEngine --> ReconcileRule --> StatusClassifier
+    StatusClassifier --> Reconciled --> Endpoints
+    StatusClassifier --> Mismatch --> Endpoints
+    StatusClassifier --> Unverified --> Endpoints
+
+    Endpoints --> AuditDiff --> SQLiteDB
+    ReviewModal -->|Approve & Record Edits Diff| Endpoints
+    Ledger -->|Query Filtered Records| Endpoints
+    Endpoints --> CSVExport
+    StatusPill -->|Probe Health / Status| Endpoints
 ```
+
+> 📖 **Deep Dive:** For the complete technical specification, sequence diagram, state machine, and threat model, see **[System Architecture Documentation (docs/architecture.md)](docs/architecture.md)**.
 
 ---
 
