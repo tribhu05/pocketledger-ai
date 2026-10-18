@@ -13,6 +13,10 @@
 
 ---
 
+![PocketLedger AI Interactive Walkthrough](docs/screenshots/pocketledger_demo.gif)
+
+---
+
 ## 1. What Problem Does This Solve?
 
 Freelancers, independent developers, and consultants collect hundreds of receipts and invoice PDFs every quarter—from cloud hosting (AWS, Hetzner, Vercel) and SaaS subscriptions (GitHub, Figma, Zoom) to travel, coffee meetings, and hardware purchases.
