@@ -1,0 +1,47 @@
+1
+00:00:00,300 --> 00:00:03,800
+Freelancers shouldn't have to risk their financial privacy
+
+2
+00:00:03,800 --> 00:00:06,900
+just to organize receipts. Meet PocketLedger AI.
+
+3
+00:00:07,200 --> 00:00:10,500
+Powered by open-weight AI through Ollama,
+
+4
+00:00:10,500 --> 00:00:13,700
+PocketLedger is designed to process financial documents with privacy in mind.
+
+5
+00:00:14,300 --> 00:00:17,400
+Upload a receipt, extract key expense details,
+
+6
+00:00:17,400 --> 00:00:21,000
+and turn unstructured text into organized financial records.
+
+7
+00:00:22,300 --> 00:00:26,500
+Then, deterministic validation checks the numbers.
+
+8
+00:00:26,500 --> 00:00:32,000
+AI extracts the details, but financial rules verify the calculations—with human approval in the loop.
+
+9
+00:00:33,300 --> 00:00:36,800
+Approved expenses enter your ledger, ready for reporting and CSV export,
+
+10
+00:00:36,800 --> 00:00:40,500
+with security-conscious handling of financial data.
+
+11
+00:00:41,200 --> 00:00:45,500
+PocketLedger AI is open-source and built to put freelancers in control.
+
+12
+00:00:45,500 --> 00:00:49,800
+Explore the code on GitHub. Your records, your control.
