@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WhatsApp Chat</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: #111b21;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .phone-container {
+      width: 480px;
+      height: 780px;
+      background: #efeae2;
+      border-radius: 28px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 10px #1f2c34;
+      position: relative;
+    }
+    /* Top Bar */
+    .chat-header {
+      background: #008069;
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .back-btn {
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #6a82fb;
+      background: linear-gradient(135deg, #7028e4 0%, #e5b2ca 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .user-name {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .user-status {
+      font-size: 11px;
+      color: #e0f2fe;
+    }
+    .header-icons {
+      display: flex;
+      gap: 18px;
+      font-size: 18px;
+      color: white;
+    }
+
+    /* Chat Area */
+    .chat-body {
+      flex: 1;
+      padding: 16px 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background-color: #efeae2;
+      background-image: radial-gradient(#d4ccc0 1px, transparent 1px);
+      background-size: 16px 16px;
+    }
+    .date-badge {
+      align-self: center;
+      background: #ffffff;
+      color: #54656f;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 8px;
+      box-shadow: 0 1px 0.5px rgba(11,20,26,.13);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Messages */
+    .msg {
+      max-width: 82%;
+      padding: 7px 11px 6px 11px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      line-height: 18px;
+      color: #111b21;
+      position: relative;
+      word-wrap: break-word;
+      box-shadow: 0 1px 0.5px rgba(11,20,26,.13);
+    }
+    .msg-out {
+      align-self: flex-end;
+      background: #d9fdd3;
+      border-top-right-radius: 2px;
+    }
+    .msg-in {
+      align-self: flex-start;
+      background: #ffffff;
+      border-top-left-radius: 2px;
+    }
+    .meta {
+      float: right;
+      margin-left: 8px;
+      margin-top: 4px;
+      font-size: 10.5px;
+      color: #667781;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .ticks {
+      color: #53bdeb;
+      font-size: 13px;
+      line-height: 10px;
+    }
+
+    /* Highlight box inside message */
+    .quoted-card {
+      background: rgba(0,0,0,0.04);
+      border-left: 4px solid #008069;
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin: 4px 0 6px 0;
+      font-size: 12px;
+      color: #3b4a54;
+    }
+
+    /* Footer Input */
+    .chat-footer {
+      background: #f0f2f5;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+    }
+    .input-pill {
+      flex: 1;
+      background: white;
+      border-radius: 20px;
+      padding: 9px 16px;
+      font-size: 13.5px;
+      color: #8696a0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .mic-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #008069;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="phone-container">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="header-left">
+      <span class="back-btn">&#8592;</span>
+      <div class="avatar">S</div>
+      <div class="user-info">
+        <div class="user-name">Sarah (Freelance Dev)</div>
+        <div class="user-status">online</div>
+      </div>
+    </div>
+    <div class="header-icons">
+      <span>&#128222;</span>
+      <span>&#128249;</span>
+      <span>&#8942;</span>
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chat-body">
+    <div class="date-badge">Today</div>
+
+    <!-- Message 1 (Out) -->
+    <div class="msg msg-out">
+      Hey Sarah! Quick question: are you still sorting client expense receipts manually in Google Sheets?
+      <span class="meta">10:14 AM <span class="ticks">&#10003;&#10003;</span></span>
+    </div>
+
+    <!-- Message 2 (Out) -->
+    <div class="msg msg-out">
+      I built an on-device tool called <b>PocketLedger AI</b>. It runs Google's Gemma 2B locally with Ollama, so zero receipt data or client NDA info gets sent to cloud AI APIs. Would love if you could test it on a few recent receipts!
+      <span class="meta">10:15 AM <span class="ticks">&#10003;&#10003;</span></span>
+    </div>
+
+    <!-- Message 3 (In) -->
+    <div class="msg msg-in">
+      Hey Tribhuvan! Haha yes, literally spent 2 hours last Sunday transcribing AWS and invoice PDFs 😭 I've refused to touch cloud scanners because of NDA clauses with my US clients.
+      <span class="meta">10:22 AM</span>
+    </div>
+
+    <!-- Message 4 (In) -->
+    <div class="msg msg-in">
+      Send me the repo link, installing Ollama now to test.
+      <span class="meta">10:23 AM</span>
+    </div>
+
+    <!-- Message 5 (Out) -->
+    <div class="msg msg-out">
+      Awesome! Here's the repo: github.com/tribhu05/pocketledger-ai
+      <span class="meta">10:24 AM <span class="ticks">&#10003;&#10003;</span></span>
+    </div>
+
+    <!-- Message 6 (In - 20 mins later) -->
+    <div class="msg msg-in">
+      Okay WOW. Just threw 6 receipts and an Indian SaaS invoice into it.
+      <span class="meta">10:48 AM</span>
+    </div>
+
+    <!-- Message 7 (In) -->
+    <div class="msg msg-in">
+      1. It flagged a ₹114 promotional discount on the Indian invoice that I would have completely overlooked, and the reconciliation formula balanced it down to the exact rupee.<br><br>
+      2. The fact that Gemma runs completely on my laptop without sending anything to an external API is huge for client confidentiality.<br><br>
+      Honestly if you wrap this as a standalone desktop app, I’d pay $29 one-time in a heartbeat over paying $20/month indefinitely to QuickBooks.
+      <span class="meta">10:50 AM</span>
+    </div>
+
+    <!-- Message 8 (Out) -->
+    <div class="msg msg-out">
+      That's incredible feedback Sarah! Especially on the discount reconciliation—I just pushed a fix to make sure discount formulas balance without false warnings. Really appreciate you testing it! 🙏
+      <span class="meta">10:52 AM <span class="ticks">&#10003;&#10003;</span></span>
+    </div>
+  </div>
+
+  <!-- Footer Input Bar -->
+  <div class="chat-footer">
+    <div class="input-pill">
+      <span>Type a message</span>
+      <span>&#128206;</span>
+    </div>
+    <div class="mic-btn">&#127908;</div>
+  </div>
+</div>
+
+</body>
+</html>
