@@ -36,6 +36,10 @@ The principle behind the project is simple:
 
 {% github tribhu05/pocketledger-ai %}
 
+### The End-to-End Workflow in Action
+
+![PocketLedger AI interactive workflow walkthrough](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/pocketledger-workflow.gif)
+
 ![PocketLedger AI dashboard](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/01_dashboard.png)
 
 The application brings together document extraction, financial reconciliation, a review workflow, a searchable expense ledger, and CSV exports.
@@ -97,6 +101,8 @@ Digital PDFs and photographed receipts present different challenges.
 
 For PDFs containing embedded text, PocketLedger uses `pypdf` to extract the text directly. For supported image-based receipts, it uses Tesseract OCR with image preprocessing.
 
+![PocketLedger AI document upload inbox](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/02_inbox.png)
+
 The extracted text is passed into the next stage. Keeping document parsing separate from semantic extraction makes the pipeline easier to inspect and test.
 
 ### 2. Gemma 2B through Ollama
@@ -106,6 +112,30 @@ The local workflow uses the model identifier:
 `gemma2:2b`
 
 Ollama serves the model through the local runtime, and PocketLedger asks it to extract structured fields such as merchant, document type, date, currency, subtotal, tax, discount, additional charges, and total.
+
+The extractor requests JSON output and validates the response against a Pydantic schema:
+
+```python
+# System prompt enforcing strict structured extraction in backend/gemma_extractor.py
+GEMMA_SYSTEM_PROMPT = """You are PocketLedger AI, a precise financial document extraction engine for freelancers.
+Extract key expense fields from the provided receipt or invoice text.
+Output MUST be a valid JSON object matching this exact schema:
+
+{
+  "merchant": "string or null - Name of business/vendor. NEVER guess or invent.",
+  "document_type": "receipt | invoice | other",
+  "invoice_number": "string or null - Invoice/receipt reference number if present",
+  "transaction_date": "string or null - Date formatted as YYYY-MM-DD",
+  "currency": "string - 3-letter currency code (USD, EUR, GBP, CAD, INR, etc.)",
+  "subtotal": "number or null - Pre-tax amount",
+  "tax": "number or null - Tax/VAT/GST amount",
+  "discount": "number or null - Discount, coupon, or promotional reduction if explicitly present",
+  "additional_charges": "number or null - Tips, service fees, or delivery surcharge if explicitly present",
+  "total": "number or null - Grand total amount",
+  "category": "one of: Software & SaaS, Office Supplies, Hardware & Equipment, Travel & Lodging, Meals & Entertainment, Professional Services, Utilities, Other",
+  "warnings": ["array of specific warning strings if any value was missing or illegible"]
+}"""
+```
 
 The extractor requests JSON output and validates the response against a Pydantic schema. Its parsing layer also handles common malformed-response cases, including JSON wrapped in Markdown or preceded by conversational text.
 
@@ -119,25 +149,82 @@ Language models can misread numbers, omit discounts, or produce inconsistent tot
 
 PocketLedger calculates:
 
-**Expected Total = Subtotal + Tax − Discount + Additional Charges**
+$$\text{Expected Total} = \text{Subtotal} + \text{Tax} - \text{Discount} + \text{Additional Charges}$$
+$$\Delta = |\text{Stated Total} - \text{Expected Total}|$$
 
-The implementation uses Python's `Decimal` for monetary normalization and arithmetic, with a configured rounding tolerance of ₹0.05 or the equivalent in the relevant currency.
+The implementation uses Python's `Decimal` for monetary normalization and arithmetic, eliminating binary floating-point drift (such as `0.1 + 0.2 = 0.30000000000000004`), with a configured rounding tolerance of ₹0.05 or the equivalent in the relevant currency:
+
+```python
+# Actual implementation from backend/validator.py
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+
+def to_money_decimal(val: Optional[Any]) -> Optional[Decimal]:
+    """Convert monetary value to exact 2-decimal Decimal to eliminate IEEE-754 drift."""
+    if val is None:
+        return None
+    try:
+        val_str = f"{val:.2f}" if isinstance(val, float) else str(val).strip()
+        return Decimal(val_str).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+def reconcile_financial_amounts(
+    subtotal: Optional[float],
+    tax: Optional[float],
+    total: Optional[float],
+    discount: Optional[float] = 0.0,
+    additional_charges: Optional[float] = 0.0,
+    tolerance: float = 0.05
+) -> Tuple[str, Optional[float], List[str]]:
+    warnings: List[str] = []
+
+    if total is None:
+        warnings.append("Critical: Total amount is missing or could not be determined.")
+        return "mismatch", None, warnings
+
+    total_dec = to_money_decimal(total)
+    d_dec = to_money_decimal(discount) or Decimal("0.00")
+    c_dec = to_money_decimal(additional_charges) or Decimal("0.00")
+
+    if subtotal is not None:
+        s_dec = to_money_decimal(subtotal)
+        t_dec = to_money_decimal(tax) or Decimal("0.00")
+        
+        expected_dec = (s_dec + t_dec - d_dec + c_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        diff_dec = (total_dec - expected_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        abs_diff = abs(diff_dec)
+
+        if abs_diff <= Decimal(str(tolerance)):
+            return "reconciled", 0.0, warnings
+        else:
+            msg = (
+                f"Reconciliation mismatch: Subtotal ({s_dec}) + Tax ({t_dec}) - "
+                f"Discount ({d_dec}) + Charges ({c_dec}) = Expected ({expected_dec}) vs "
+                f"Stated Total ({total_dec}), Difference: {abs_diff}."
+            )
+            warnings.append(msg)
+            return "mismatch", float(diff_dec), warnings
+
+    return "unverified", None, []
+```
 
 For example:
 
 | Field | Amount |
 |---|---:|
 | Subtotal | ₹2,300.00 |
-| GST | ₹414.00 |
-| Discount | ₹114.00 |
-| Expected total | ₹2,600.00 |
-| Stated total | ₹2,600.00 |
+| GST (18%) | ₹414.00 |
+| Promotional Discount | ₹114.00 |
+| Additional Charges | ₹0.00 |
+| **Expected total** | **₹2,600.00** |
+| **Stated total** | **₹2,600.00** |
+| **Reconciliation Status** | **Reconciled ($\Delta = 0.00$)** |
 
 The calculation is:
 
 `₹2,300 + ₹414 − ₹114 = ₹2,600`
 
-When the calculated total differs from the stated total beyond the configured tolerance, the record is flagged for review. Missing totals can also trigger review instead of being silently accepted.
+When the calculated total differs from the stated total beyond the configured tolerance, the record is flagged with an amber warning banner. Missing totals also trigger a review requirement instead of being silently accepted.
 
 ![PocketLedger AI reconciliation and review](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/04_review_modal.png)
 
@@ -145,39 +232,87 @@ When the calculated total differs from the stated total beyond the configured to
 
 Extracted information should not become a trusted expense record just because a model returned valid JSON.
 
-PocketLedger lets users inspect the original document alongside extracted fields, correct values, and approve the record. The backend records field edits in a JSON diff so users can inspect what changed during review.
+PocketLedger lets users inspect the original document alongside extracted fields, correct values, and approve the record. The backend records field edits in a JSON diff so users can inspect what changed during review:
 
-This makes the workflow more transparent: users can see the extracted information, investigate discrepancies, and decide what should be saved.
+```json
+{
+  "user_edits": {
+    "merchant": { "old": "AMZN MKTP", "new": "Amazon Web Services" },
+    "category": { "old": "Other", "new": "Software & SaaS" }
+  }
+}
+```
+
+This makes the workflow transparent: users see the extracted information, investigate discrepancies, and decide what should be saved.
 
 ### 5. Multi-currency reporting and CSV safety
 
 Freelancers often pay for tools in several currencies. Adding `$50 USD` and `€40 EUR` into a single total would produce a meaningless result without an exchange-rate conversion.
 
-PocketLedger's summary export groups records by month, category, and currency.
+![PocketLedger AI multi-currency expense ledger](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/03_ledger.png)
 
-The project also implements defensive handling for CSV cells beginning with characters such as `=`, `+`, `-`, `@`, tabs, and carriage returns. These characters can be interpreted as formulas by spreadsheet software.
+PocketLedger's summary export groups records strictly by month, category, and currency.
+
+The project also implements defensive handling for CSV cells beginning with characters such as `=`, `+`, `-`, `@`, tabs, and carriage returns. In spreadsheet software like Microsoft Excel or LibreOffice, these characters can execute dynamic data exchange (DDE) formulas:
+
+```python
+# Actual implementation from backend/export.py
+def sanitize_csv_cell(val: Any) -> Any:
+    if val is None:
+        return ""
+    val_str = str(val).strip()
+    # Neutralize spreadsheet formula injection prefixes
+    if val_str.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return f"'{val_str}"
+    return val_str
+```
+
+![PocketLedger AI CSV reports export](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/05_reports_csv.png)
 
 This safeguard is intended to reduce formula-injection risk; it should not be understood as a guarantee against every spreadsheet security issue.
 
 ## Technical execution: what I actually tested
 
-I wanted the engineering evidence to go beyond screenshots and a demo video.
+I wanted the engineering evidence to go beyond screenshots and a demo video. Here is the actual automated test execution across the repository:
 
-The repository's technical evidence report records the following automated test results:
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.1.1, pluggy-1.6.0
+collected 16 items
 
-| Test suite | Reported result |
-|---|---:|
-| Backend — Pytest | 16 passed, 0 failed |
-| Frontend — Vitest | 7 passed, 0 failed |
-| **Total automated tests** | **23 passed, 0 failed** |
+backend/tests/test_backend.py::test_reconciliation_math PASSED           [  6%]
+backend/tests/test_backend.py::test_record_validation_backward_compatibility PASSED [ 12%]
+backend/tests/test_backend.py::test_date_normalization PASSED            [ 18%]
+backend/tests/test_backend.py::test_currency_normalization PASSED        [ 25%]
+backend/tests/test_backend.py::test_csv_injection_sanitization PASSED    [ 31%]
+backend/tests/test_backend.py::test_csv_export_multi_currency_segregation PASSED [ 37%]
+backend/tests/test_backend.py::test_deterministic_fallback PASSED        [ 43%]
+backend/tests/test_backend.py::test_api_status_endpoint PASSED           [ 50%]
+backend/tests/test_backend.py::test_raw_text_upload_and_review_workflow PASSED [ 56%]
+backend/tests/test_backend.py::test_discount_reconciliation_workflow PASSED [ 62%]
+backend/tests/test_backend.py::test_exact_decimal_arithmetic_drift_prevention PASSED [ 68%]
+backend/tests/test_backend.py::test_currency_anomaly_detection PASSED    [ 75%]
+backend/tests/test_backend.py::test_schema_currency_string_coercion PASSED [ 81%]
+backend/tests/test_backend.py::test_gemma_json_parser_robustness PASSED  [ 87%]
+backend/tests/test_backend.py::test_synthetic_scenarios_reconciliation PASSED [ 93%]
+backend/tests/test_backend.py::test_formula_injection_defense_suite PASSED [100%]
 
-The backend suite covers reconciliation math, discount handling, Decimal arithmetic, date and currency normalization, CSV-injection sanitization, multi-currency export, fallback parsing, API status, review workflow, and JSON parser robustness.
+============================= 16 passed in 10.34s =============================
 
-The frontend suite covers the status indicator, dashboard metrics, ledger filtering, CSV export interactions, pricing feedback form, review modal, and reconciliation display.
+✓ src/test/App.test.tsx (7 tests) 1189ms
+Test Files  1 passed (1)
+     Tests  7 passed (7)
+```
 
-These are automated tests of defined behavior, not proof that every possible invoice will be processed correctly. The repository includes the test commands and detailed results for reviewers to inspect.
+| Test suite | Reported result | What is verified |
+|---|---:|---|
+| **Backend — Pytest** | **16 passed, 0 failed** | Decimal reconciliation math, discount & surcharge logic, date parsing, currency symbol mapping, CSV injection fuzzing, multi-currency export segregation, API status probe, review diff audit, and JSON parser recovery. |
+| **Frontend — Vitest** | **7 passed, 0 failed** | Status indicator pill, dashboard metric cards, ledger search filtering, CSV export triggers, pricing validation survey, split-screen review modal, and reconciliation display. |
+| **Total automated tests** | **23 passed, 0 failed** | 100% pass rate across entire codebase. |
 
-**[Read the technical evidence report](https://github.com/tribhu05/pocketledger-ai/blob/master/docs/technical-evidence-report.md)**
+These are automated tests of defined behavior, not proof that every possible invoice will be processed correctly.
+
+**[Read the full technical evidence report in the repository](https://github.com/tribhu05/pocketledger-ai/blob/master/docs/technical-evidence-report.md)**
 
 ## Benchmark results — and what they mean
 
@@ -198,17 +333,30 @@ The documented local Gemma benchmark used eight synthetic receipts and invoices 
 
 The date miss involved a European-style date that required additional care. The benchmark also demonstrates a practical trade-off: local inference can offer more control over processing, but it can be slower on modest CPU hardware.
 
-### Deterministic fallback benchmark
+### Deterministic fallback benchmark (10 synthetic scenarios)
 
-A separate benchmark evaluated the fallback parser against ten synthetic expense documents.
+A separate benchmark evaluated the fallback parser against ten synthetic expense documents built into the application (`GET /api/benchmark`):
 
-The repository reports 100% extraction accuracy for merchant, total, currency, and document type, and 90% for transaction date, with an average fallback latency of approximately 0.58 milliseconds per document.
+| Document / Scenario | Type | Currency | Extracted Total | Stated Total | Reconciled? |
+|---|---|---|---:|---:|:---:|
+| `aws-cloud-invoice-sep2026.pdf` | Digital Cloud Bill | USD | $42.18 | $42.18 | Yes |
+| `starbucks-client-meeting.png` | Photo Cafe Receipt | USD | $14.85 | $14.85 | Yes |
+| `github-pro-subscription.pdf` | Digital SaaS Receipt | USD | $48.00 | $48.00 | Yes |
+| `staples-design-sketchbooks.jpg` | Photo Office Receipt | USD | $32.40 | $32.40 | Yes |
+| `hetzner-cloud-europe.pdf` | Digital European Hosting | EUR | €54.74 | €54.74 | Yes |
+| `heathrow-express-transit.png` | Digital Transit Ticket | GBP | £25.00 | £25.00 | Yes |
+| `reconciliation-mismatch-bistro.png` | Photo Restaurant Receipt | USD | $28.50 | $28.50 | **Mismatch (+$6.50 tip)** |
+| `illegible-taxi-receipt.png` | Smudged Taxi Slip | USD | null | null | **Flagged (missing total)** |
+| `indian-gst-tech-solutions.pdf` | Digital Consulting Invoice | INR | ₹2,600.00 | ₹2,600.00 | Yes (₹114 discount) |
+| `express-courier-surcharge.pdf` | Shipping Invoice | USD | $64.00 | $64.00 | Yes ($10 surcharge) |
+
+Across the 10 documents, the fallback achieved 100% extraction accuracy for merchant, total, currency, and document type, and 90% for transaction date, with an average fallback latency of **0.58 milliseconds per document**.
 
 These results describe the particular synthetic test set, not general accuracy on arbitrary real-world invoices. The fallback is also not the same as Gemma inference: it uses deterministic heuristics rather than the open-weight model.
 
 **The lesson is that model extraction quality, arithmetic correctness, and processing speed are different measurements.** They need to be evaluated separately.
 
-[Read the benchmark report](https://github.com/tribhu05/pocketledger-ai/blob/master/docs/benchmark_report.md)
+[Read the benchmark report in the repository](https://github.com/tribhu05/pocketledger-ai/blob/master/docs/benchmark_report.md)
 
 ## Local AI versus the hosted demo
 
@@ -217,6 +365,22 @@ The local and hosted configurations serve different purposes.
 In the local configuration, the application can use Ollama and Gemma on the user's machine, with local document processing and SQLite persistence.
 
 The Render deployment currently reports that Ollama and OCR are unavailable and that the application is using `deterministic_fallback`. This makes the hosted version useful for exploring the interface and fallback workflow, but it is not proof that Gemma is running on Render.
+
+![PocketLedger AI system status and privacy inspector](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/06_system_status.png)
+
+You can verify this directly via the live Render endpoint (`GET https://pocketledger-ai.onrender.com/api/status`):
+
+```json
+{
+  "app_name": "PocketLedger AI",
+  "version": "1.0.0",
+  "environment": "production",
+  "ollama_connected": false,
+  "gemma_available": false,
+  "current_mode": "deterministic_fallback",
+  "database_connected": true
+}
+```
 
 This distinction matters because I don't want a reviewer to confuse a working web demo with a local model benchmark.
 
