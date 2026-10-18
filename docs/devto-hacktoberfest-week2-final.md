@@ -451,9 +451,58 @@ PocketLedger AI was built specifically for the **Side Hustle** prompt. It tackle
 PocketLedger AI is entered for the **Best Use of Render** prize track:
 
 - **Live Production Deployment:** [https://pocketledger-ai.onrender.com](https://pocketledger-ai.onrender.com)
-- **Declarative Infrastructure Blueprint:** The deployment is managed via [`render.yaml`](https://github.com/tribhu05/pocketledger-ai/blob/master/render.yaml) with continuous deployment, health check routing (`/api/status`), and configured environment variables.
-- **Unified Multi-Stage Docker Architecture:** The Render service runs a multi-stage Docker build that compiles the React 19 / TypeScript frontend, installs system-level Tesseract OCR (`tesseract-ocr`, `libtesseract-dev`), bundles the FastAPI backend, and serves the entire unified application on a single web service.
-- **Cloud-Resilient Fallback Design:** In a cloud container environment where a local Ollama daemon is absent, the application detects the host environment and activates its deterministic heuristic fallback parser. This guarantees that hackathon judges and evaluators have zero setup friction—they can immediately test document intake, reconciliation math, review editing, and CSV export without needing to configure or download local LLM weights.
+- **Declarative Blueprint (`render.yaml`):** Continuous deployment with automated health check probes on `/api/status`.
+- **Zero-Friction Evaluation:** Hackathon judges can test the full ingest, reconciliation, review, and export workflow instantly with zero local setup.
+
+![PocketLedger AI Render Deployment Proof](https://raw.githubusercontent.com/tribhu05/pocketledger-ai/master/docs/screenshots/render_deployment_proof.png)
+
+#### Infrastructure as Code: Declarative `render.yaml` Blueprint
+PocketLedger AI uses an Infrastructure-as-Code blueprint to orchestrate the container build, port routing, and environment parameters:
+
+```yaml
+services:
+  - type: web
+    name: pocketledger-ai
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /api/status
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:///:memory:
+```
+
+#### Unified Multi-Stage `Dockerfile`
+The service compiles the React 19 / TypeScript frontend, installs system-level Tesseract OCR (`tesseract-ocr`, `libtesseract-dev`), bundles the FastAPI backend, and serves the static production build directly from FastAPI on a single lightweight Render web container:
+
+```dockerfile
+# Stage 1: Build Frontend (React 19 + TypeScript + Vite)
+FROM node:20-slim AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Production Python Backend + Static Asset Serving
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr libtesseract-dev && rm -rf /var/lib/apt/lists/*
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend/ ./backend/
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+EXPOSE 10000
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "10000"]
+```
+
+#### Cloud-Resilient Architecture
+In cloud environments where a local Ollama daemon is absent, the backend gracefully activates its deterministic regex/heuristic fallback parser. Evaluators get immediate, reliable document intake and financial reconciliation without configuration overhead.
 
 ---
 
