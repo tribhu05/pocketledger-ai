@@ -8,12 +8,14 @@
 [![Inference: Ollama](https://img.shields.io/badge/Inference-Ollama%20Local-black.svg)](https://ollama.ai)
 [![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%2B%20SQLite-009688.svg)](https://fastapi.tiangolo.com)
 [![Frontend: React + Vite](https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61DAFB.svg)](https://vitejs.dev)
-[![Tests: Pytest & Vitest](https://img.shields.io/badge/Tests-14%20Passed%20(100%25)-brightgreen.svg)]()
+[![Tests: Pytest & Vitest](https://img.shields.io/badge/Tests-23%20Passed%20(100%25)-brightgreen.svg)]()
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tribhu05/pocketledger-ai)
+
+**[▶ Watch 50s Demo Video on YouTube](https://youtu.be/Uk_9aB7Z0xo?si=P0W50wuzLihcNeFz)** | **[Direct MP4](https://github.com/tribhu05/pocketledger-ai/raw/master/docs/video/PocketLedger_AI_Demo_50s.mp4)** | **[Live Web Demo](https://pocketledger-ai.onrender.com)** | **[Technical Evidence Report](docs/technical-evidence-report.md)**
 
 ---
 
-![PocketLedger AI Interactive Walkthrough](docs/screenshots/pocketledger_demo.gif)
+![PocketLedger AI Interactive Walkthrough](docs/screenshots/pocketledger-workflow.gif)
 
 ---
 
@@ -145,24 +147,35 @@ flowchart LR
     B --> C["Extracted Text"]
     C --> D["Gemma 2B (Local via Ollama)"]
     D --> E["Structured JSON Output"]
-    E --> F["Deterministic Business Rules\n(Math Reconciliation, Date, Currency)"]
-    F --> G["Editable Human Review Screen"]
+    E --> F["Deterministic Python Decimal Engine\n(Reconciliation, Date, Currency)"]
+    F --> G["Editable Split-Screen Review"]
     G --> H["Confirmed SQLite Records"]
     H --> I["Injection-Safe CSV Export"]
 ```
 
-### Measured Benchmark Performance (AMD Ryzen 3 7320U, 8 GB RAM)
+### Deterministic Financial Reconciliation
+The mathematical reconciliation engine runs in Python Decimal to prevent floating-point drift:
+
+$$\text{Expected Total} = \text{Subtotal} + \text{Tax} - \text{Discount} + \text{Additional Charges}$$
+$$\Delta = |\text{Stated Total} - \text{Expected Total}|$$
+
+- **Reconciled ($\Delta \le 0.05$):** Cent-level variance tolerated for rounding.
+- **Mismatch ($\Delta > 0.05$):** Flagged with a detailed explanation of the discrepancy.
+- **Missing Total:** Automatically flagged for mandatory human review.
+
+### Measured Benchmark Performance (10 Synthetic Real-World Scenarios)
+Evaluated across diverse freelancer documents (cloud bills, cafe meetings, SaaS subscriptions, office supplies, VAT European hosting, UK train transit, bistro tip reconciliation mismatch, smudged/illegible taxi receipt, Indian GST invoice with discount, express courier delivery surcharge):
 
 | Extraction Field | Gemma 2B Accuracy | Deterministic Fallback | Notes |
 |---|---|---|---|
-| **Merchant Name** | **100.0%** (8 / 8) | 100.0% | Correctly handles logos, headers, and noise |
-| **Total Amount** | **100.0%** (8 / 8) | 100.0% | Preserves null on illegible documents |
-| **Currency Detection** | **100.0%** (8 / 8) | 100.0% | Mapped $, €, £ to USD, EUR, GBP |
-| **Document Type** | **100.0%** (8 / 8) | 100.0% | Differentiates invoices from receipts |
-| **Transaction Date** | **87.5%** (7 / 8) | 87.5% | Normalized to ISO-8601 YYYY-MM-DD |
-| **Average Latency** | **34.1 seconds** | **0.61 ms** | Measured on 4-core CPU/iGPU without GPU |
+| **Merchant Name** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Correctly handles logos, headers, and noise |
+| **Total Amount** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Preserves null on illegible documents |
+| **Currency Detection** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Mapped $, €, £, ₹ to ISO codes |
+| **Document Type** | **100.0%** (10 / 10) | **100.0%** (10 / 10) | Differentiates invoices from receipts |
+| **Transaction Date** | **90.0%** (9 / 10) | **90.0%** (9 / 10) | Normalized to ISO-8601 YYYY-MM-DD |
+| **Average Latency** | **~34 seconds** | **0.58 ms** | Gemma on 4-core CPU vs Instant regex fallback |
 
-*Complete benchmark logs: see [`docs/benchmark_report.md`](file:///e:/week%202/docs/benchmark_report.md).*
+*Complete engineering audit and test proof: see [`docs/technical-evidence-report.md`](docs/technical-evidence-report.md).*
 
 ---
 

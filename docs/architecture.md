@@ -76,10 +76,10 @@ flowchart TD
 
 ### Stage 4: Deterministic Validation & Reconciliation
 Before any record reaches the human review screen, it passes through pure application logic:
-- **Math Reconciliation Rule:** `subtotal + tax ≈ total` (within 0.05 rounding tolerance).
+- **Math Reconciliation Rule:** `subtotal + tax - discount + additional_charges ≈ total` (within 0.05 rounding tolerance).
   - If amounts reconcile: flagged as `reconciled`.
   - If amounts differ: flagged as `mismatch` with a clear explanation:
-    *`Reconciliation mismatch: Subtotal ($20.00) + Tax ($2.00) = $22.00, differing from Total ($28.50) by $6.50. Please review source receipt.`*
+    *`Reconciliation mismatch: Breakdown: Subtotal ($2300.00) + Tax ($414.00) - Discount ($114.00) + Additional Charges ($0.00) = Expected Total ($2600.00) vs Stated Total ($2714.00), Difference: 114.00. Please review source receipt.`*
 - **Date Normalization:** Dates parsed into standard ISO-8601 (`YYYY-MM-DD`). Future dates or suspicious years are flagged with warnings.
 - **Currency Standardization:** Currency symbols (`$`, `€`, `£`, `₹`, `¥`) mapped to ISO-4217 three-letter codes (`USD`, `EUR`, `GBP`, `INR`, `JPY`).
 - **Category Taxonomy:** Mapped to standardized freelance tax categories (Software & SaaS, Office Supplies, Hardware, Travel, Meals, Professional Services, Utilities, Other).

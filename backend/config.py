@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import Optional, Set
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     APP_NAME: str = "PocketLedger AI"
@@ -28,9 +28,7 @@ class Settings(BaseSettings):
     # OCR Configuration
     TESSERACT_CMD: Optional[str] = None
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

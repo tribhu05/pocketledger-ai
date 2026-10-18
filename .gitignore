@@ -38,3 +38,6 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 *.log
+
+# Scratch build folders
+output_video/

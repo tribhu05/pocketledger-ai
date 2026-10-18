@@ -116,6 +116,48 @@ def normalize_category(category_raw: Optional[str], text_context: str = "") -> s
 
     return "Other"
 
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+
+def to_money_decimal(val: Optional[Any]) -> Optional[Decimal]:
+    """Convert monetary value to exact 2-decimal-place Decimal to avoid IEEE 754 drift."""
+    if val is None:
+        return None
+    try:
+        # If float, round to string first to avoid 0.30000000000000004
+        if isinstance(val, float):
+            import math
+            if math.isnan(val) or math.isinf(val):
+                return None
+            val_str = f"{val:.2f}"
+        else:
+            val_str = str(val).strip()
+        return Decimal(val_str).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+def detect_currency_anomalies(text_context: str, chosen_currency: str) -> List[str]:
+    """Detect if multiple contradictory currency symbols appear in document text."""
+    warnings: List[str] = []
+    found_symbols = []
+    if "€" in text_context:
+        found_symbols.append("EUR (€)")
+    if "£" in text_context:
+        found_symbols.append("GBP (£)")
+    if "₹" in text_context:
+        found_symbols.append("INR (₹)")
+    if "¥" in text_context:
+        found_symbols.append("JPY (¥)")
+    if "$" in text_context and not any(k in text_context for k in ["US$", "C$", "A$"]):
+        found_symbols.append("USD ($)")
+
+    unique_symbols = list(dict.fromkeys(found_symbols))
+    if len(unique_symbols) > 1:
+        warnings.append(
+            f"Multiple conflicting currency symbols detected in document ({', '.join(unique_symbols)}). "
+            f"Assigned '{chosen_currency}' — please verify."
+        )
+    return warnings
+
 def reconcile_financial_amounts(
     subtotal: Optional[float],
     tax: Optional[float],
@@ -125,8 +167,8 @@ def reconcile_financial_amounts(
     tolerance: float = 0.05
 ) -> Tuple[str, Optional[float], List[str]]:
     """
-    Perform deterministic math reconciliation on monetary totals using the formula:
-    expectedTotal = subtotal + tax - discount + additionalCharges
+    Perform deterministic math reconciliation using exact Decimal arithmetic:
+    Expected Total = Subtotal + Tax - Discount + Additional Charges
     (with configurable currency rounding tolerance, default 0.05).
     """
     warnings: List[str] = []
@@ -135,42 +177,61 @@ def reconcile_financial_amounts(
         warnings.append("Critical: Total amount is missing or could not be determined.")
         return "mismatch", None, warnings
 
-    if total < 0:
-        warnings.append(f"Negative total amount detected ({total:.2f}). Please verify if refund or credit memo.")
+    total_dec = to_money_decimal(total)
+    if total_dec is None:
+        warnings.append("Critical: Stated total is malformed or non-numeric.")
+        return "mismatch", None, warnings
 
-    # Guard negative discount or additional charges
-    if discount is not None and discount < 0:
-        warnings.append(f"Negative discount detected ({discount:.2f}). Discount should be non-negative.")
+    if total_dec < Decimal("0.00"):
+        warnings.append(f"Negative total amount detected ({float(total_dec):.2f}). Please verify if refund or credit memo.")
 
-    if additional_charges is not None and additional_charges < 0:
-        warnings.append(f"Negative additional charges detected ({additional_charges:.2f}).")
+    d_dec = to_money_decimal(discount) if discount is not None else Decimal("0.00")
+    if d_dec is None:
+        d_dec = Decimal("0.00")
+    if d_dec < Decimal("0.00"):
+        warnings.append(f"Negative discount detected ({float(d_dec):.2f}). Discount should be non-negative.")
 
-    d_val = float(discount) if discount is not None else 0.0
-    c_val = float(additional_charges) if additional_charges is not None else 0.0
+    c_dec = to_money_decimal(additional_charges) if additional_charges is not None else Decimal("0.00")
+    if c_dec is None:
+        c_dec = Decimal("0.00")
+    if c_dec < Decimal("0.00"):
+        warnings.append(f"Negative additional charges detected ({float(c_dec):.2f}).")
 
     if subtotal is not None:
-        t_val = float(tax) if tax is not None else 0.0
-        expected_total = round(subtotal + t_val - d_val + c_val, 2)
-        diff = round(total - expected_total, 2)
-        abs_diff = abs(diff)
+        sub_dec = to_money_decimal(subtotal)
+        if sub_dec is None:
+            warnings.append("Subtotal amount is malformed or non-numeric.")
+            return "unverified", None, warnings
+
+        t_dec = to_money_decimal(tax) if tax is not None else Decimal("0.00")
+        if t_dec is None:
+            t_dec = Decimal("0.00")
+
+        # Decimal formula: expected = subtotal + tax - discount + additional_charges
+        expected_total_dec = sub_dec + t_dec - d_dec + c_dec
+        diff_dec = total_dec - expected_total_dec
+        abs_diff_dec = abs(diff_dec)
+
+        tol_dec = Decimal(str(tolerance)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         breakdown_msg = (
-            f"Breakdown: Subtotal ({subtotal:.2f}) + Tax ({t_val:.2f}) - "
-            f"Discount ({d_val:.2f}) + Additional Charges ({c_val:.2f}) = "
-            f"Expected Total ({expected_total:.2f}) vs Stated Total ({total:.2f}), "
-            f"Difference: {abs_diff:.2f}"
+            f"Breakdown: Subtotal ({float(sub_dec):.2f}) + Tax ({float(t_dec):.2f}) - "
+            f"Discount ({float(d_dec):.2f}) + Additional Charges ({float(c_dec):.2f}) = "
+            f"Expected Total ({float(expected_total_dec):.2f}) vs Stated Total ({float(total_dec):.2f}), "
+            f"Difference: {float(abs_diff_dec):.2f}"
         )
 
-        if abs_diff <= tolerance:
-            if tax is None and d_val == 0.0 and c_val == 0.0:
+        if abs_diff_dec <= tol_dec:
+            if tax is None and d_dec == Decimal("0.00") and c_dec == Decimal("0.00"):
                 warnings.append("Zero or missing tax reconciled with total.")
             return "reconciled", 0.0, warnings
         else:
             msg = f"Reconciliation mismatch: {breakdown_msg}. Please review source receipt."
             warnings.append(msg)
-            return "mismatch", diff, warnings
+            return "mismatch", float(diff_dec), warnings
 
-    return "unverified", None, []
+    warnings.append("Subtotal missing; cannot perform full arithmetic reconciliation.")
+    return "unverified", None, warnings
 
 def validate_and_normalize_record(
     raw: ExtractedReceiptFields,
@@ -189,17 +250,29 @@ def validate_and_normalize_record(
     norm_date, raw_date_out, date_warnings = parse_and_normalize_date(date_to_parse)
     warnings.extend(date_warnings)
 
-    # 3. Currency normalization
+    # 3. Currency normalization & anomaly checks
     norm_currency = normalize_currency(raw.currency, raw_ocr_text)
+    curr_warnings = detect_currency_anomalies(raw_ocr_text, norm_currency)
+    warnings.extend(curr_warnings)
 
-    # 4. Amounts sanitization
-    subtotal = round(float(raw.subtotal), 2) if raw.subtotal is not None else None
-    tax = round(float(raw.tax), 2) if raw.tax is not None else None
-    discount = round(float(raw.discount), 2) if raw.discount is not None else 0.0
-    additional_charges = round(float(raw.additional_charges), 2) if raw.additional_charges is not None else 0.0
-    total = round(float(raw.total), 2) if raw.total is not None else None
+    # 4. Amounts sanitization via safe money conversion
+    sub_dec = to_money_decimal(raw.subtotal)
+    tax_dec = to_money_decimal(raw.tax)
+    disc_dec = to_money_decimal(raw.discount) if raw.discount is not None else Decimal("0.00")
+    if disc_dec is None:
+        disc_dec = Decimal("0.00")
+    chg_dec = to_money_decimal(raw.additional_charges) if raw.additional_charges is not None else Decimal("0.00")
+    if chg_dec is None:
+        chg_dec = Decimal("0.00")
+    tot_dec = to_money_decimal(raw.total)
 
-    # 5. Math Reconciliation
+    subtotal = float(sub_dec) if sub_dec is not None else None
+    tax = float(tax_dec) if tax_dec is not None else None
+    discount = float(disc_dec)
+    additional_charges = float(chg_dec)
+    total = float(tot_dec) if tot_dec is not None else None
+
+    # 5. Math Reconciliation with Decimal engine
     rec_status, rec_delta, rec_warnings = reconcile_financial_amounts(
         subtotal=subtotal,
         tax=tax,
@@ -213,7 +286,6 @@ def validate_and_normalize_record(
     norm_category = normalize_category(raw.category, f"{merchant or ''} {raw.description or ''} {raw_ocr_text}")
 
     # 7. Overall review status
-    # Must remain awaiting_review until confirmed by human
     status = "awaiting_review"
 
     # Deduplicate warnings

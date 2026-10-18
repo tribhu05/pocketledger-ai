@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from typing import Dict, Any, Tuple, Optional
 import httpx
@@ -35,6 +36,39 @@ CRITICAL RULES:
 3. If total amount is ambiguous, report null and add a note in warnings.
 4. Output ONLY valid JSON. Do not wrap in markdown or commentary."""
 
+def parse_json_from_response(raw_text: str) -> Dict[str, Any]:
+    """Parse JSON payload from model response, handling markdown blocks or conversational preamble."""
+    if not raw_text or not raw_text.strip():
+        raise ValueError("Empty model response")
+
+    # 1. Try direct parse
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError:
+        pass
+
+    # 2. Extract ```json ... ``` code blocks
+    code_block_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", raw_text)
+    if code_block_match:
+        try:
+            return json.loads(code_block_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # 3. Extract outermost balanced braces { ... }
+    first_brace = raw_text.find("{")
+    last_brace = raw_text.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        candidate = raw_text[first_brace : last_brace + 1].strip()
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+    # 4. Clean backticks and try again
+    cleaned = raw_text.replace("```json", "").replace("```", "").strip()
+    return json.loads(cleaned)
+
 async def check_gemma_availability() -> Tuple[bool, Optional[str]]:
     """Check if Ollama server is running and the Gemma model is available."""
     try:
@@ -54,6 +88,10 @@ async def check_gemma_availability() -> Tuple[bool, Optional[str]]:
                         return True, m
                 return False, f"Ollama is running, but Gemma model '{settings.GEMMA_MODEL}' not found. Available: {models}"
             return False, f"Ollama returned HTTP status {resp.status_code}"
+    except httpx.ConnectError:
+        return False, f"Ollama connection refused at {settings.OLLAMA_BASE_URL}. Ensure Ollama daemon is active."
+    except httpx.TimeoutException:
+        return False, f"Ollama health check timed out at {settings.OLLAMA_BASE_URL}."
     except Exception as e:
         return False, f"Could not connect to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}"
 
@@ -84,32 +122,30 @@ async def extract_with_gemma(document_text: str) -> Tuple[ExtractedReceiptFields
     }
 
     start_time = time.perf_counter()
-    async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_SECONDS) as client:
-        response = await client.post(
-            f"{settings.OLLAMA_BASE_URL}/api/generate",
-            json=payload
-        )
-        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    try:
+        async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_SECONDS) as client:
+            response = await client.post(
+                f"{settings.OLLAMA_BASE_URL}/api/generate",
+                json=payload
+            )
+            duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
-        if response.status_code != 200:
-            raise RuntimeError(f"Ollama error {response.status_code}: {response.text}")
+            if response.status_code != 200:
+                raise RuntimeError(f"Ollama error {response.status_code}: {response.text}")
 
-        res_json = response.json()
-        raw_text = res_json.get("response", "").strip()
+            res_json = response.json()
+            raw_text = res_json.get("response", "").strip()
+    except httpx.ConnectError as ce:
+        raise RuntimeError(f"Connection refused to Ollama at {settings.OLLAMA_BASE_URL}. Run 'ollama serve'.") from ce
+    except httpx.TimeoutException as te:
+        raise RuntimeError(f"Ollama inference timed out after {settings.OLLAMA_TIMEOUT_SECONDS}s.") from te
 
     # Parse and validate JSON against Pydantic schema
     try:
-        parsed_dict = json.loads(raw_text)
+        parsed_dict = parse_json_from_response(raw_text)
         validated = ExtractedReceiptFields(**parsed_dict)
         return validated, raw_text, duration_ms
-    except json.JSONDecodeError as jde:
-        # Fallback repair if model wrapped JSON with backticks
-        cleaned_text = raw_text.strip("`").replace("json\n", "", 1).strip()
-        try:
-            parsed_dict = json.loads(cleaned_text)
-            validated = ExtractedReceiptFields(**parsed_dict)
-            return validated, raw_text, duration_ms
-        except Exception:
-            raise ValueError(f"Gemma produced non-parseable JSON: {raw_text[:200]}") from jde
+    except (json.JSONDecodeError, ValueError) as jde:
+        raise ValueError(f"Gemma produced non-parseable JSON: {raw_text[:200]}") from jde
     except ValidationError as ve:
         raise ValueError(f"Gemma JSON failed schema validation: {ve.errors()}") from ve

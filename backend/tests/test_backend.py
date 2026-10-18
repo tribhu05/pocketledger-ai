@@ -10,10 +10,13 @@ from backend.validator import (
     normalize_currency,
     normalize_category,
     validate_and_normalize_record,
+    detect_currency_anomalies,
 )
 from backend.schemas import ExtractedReceiptFields
 from backend.export import sanitize_csv_cell, export_expenses_to_csv, export_summary_to_csv
 from backend.fallback_extractor import extract_with_fallback
+from backend.gemma_extractor import parse_json_from_response
+from backend.demo_data import SYNTHETIC_RECEIPTS
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
@@ -287,3 +290,149 @@ async def test_discount_reconciliation_workflow():
 
         # Clean up
         await client.delete(f"/api/documents/{expense_id}")
+
+@pytest.mark.asyncio
+async def test_exact_decimal_arithmetic_drift_prevention():
+    # IEEE-754 drift case: 0.10 + 0.20 = 0.30000000000000004 in raw float
+    status, delta, warnings = reconcile_financial_amounts(0.10, 0.20, 0.30)
+    assert status == "reconciled"
+    assert delta == 0.0
+
+    # Discount and additional charges combination: 100 + 10 - 15 + 5 = 100
+    status, delta, warnings = reconcile_financial_amounts(
+        subtotal=100.00,
+        tax=10.00,
+        total=100.00,
+        discount=15.00,
+        additional_charges=5.00,
+    )
+    assert status == "reconciled"
+    assert delta == 0.0
+
+    # Surcharge only: 50 + 4 + 10 = 64
+    status, delta, warnings = reconcile_financial_amounts(
+        subtotal=50.00,
+        tax=4.00,
+        total=64.00,
+        additional_charges=10.00,
+    )
+    assert status == "reconciled"
+    assert delta == 0.0
+
+@pytest.mark.asyncio
+async def test_currency_anomaly_detection():
+    # Mixed symbols produce clear warning
+    conflicting_text = "Amount due: $50.00 USD (equivalent to €46.00 EUR)"
+    warnings = detect_currency_anomalies(conflicting_text, "USD")
+    assert len(warnings) == 1
+    assert "conflicting currency symbols" in warnings[0].lower()
+
+    # Consistent single currency produces no warning
+    single_curr_text = "Total amount due: $42.18. Tax: $3.83."
+    no_warnings = detect_currency_anomalies(single_curr_text, "USD")
+    assert len(no_warnings) == 0
+
+@pytest.mark.asyncio
+async def test_schema_currency_string_coercion():
+    # Gemma often returns strings with currency signs or commas like "$1,234.50"
+    fields = ExtractedReceiptFields(
+        subtotal="$1,234.50",
+        tax="€ 123.45",
+        discount="₹ 50.00",
+        total="1,307.95"
+    )
+    assert fields.subtotal == 1234.50
+    assert fields.tax == 123.45
+    assert fields.discount == 50.00
+    assert fields.total == 1307.95
+
+    # Non-numeric or NaN values coerce gracefully to None
+    invalid_fields = ExtractedReceiptFields(total="NaN", subtotal="unreadable")
+    assert invalid_fields.total is None
+    assert invalid_fields.subtotal is None
+
+@pytest.mark.asyncio
+async def test_gemma_json_parser_robustness():
+    # Markdown block with explanatory text
+    response_with_markdown = """Here is the extracted invoice data:
+```json
+{
+  "merchant": "Vercel Inc",
+  "document_type": "invoice",
+  "currency": "USD",
+  "subtotal": 20.00,
+  "tax": 1.60,
+  "total": 21.60,
+  "category": "Software & SaaS"
+}
+```
+Please let me know if you need anything else!"""
+    parsed = parse_json_from_response(response_with_markdown)
+    assert parsed["merchant"] == "Vercel Inc"
+    assert parsed["total"] == 21.60
+
+    # Preamble without markdown block
+    response_with_preamble = 'Processing complete: {"merchant": "Supabase", "total": 25.00, "currency": "USD"}'
+    parsed2 = parse_json_from_response(response_with_preamble)
+    assert parsed2["merchant"] == "Supabase"
+    assert parsed2["total"] == 25.00
+
+@pytest.mark.asyncio
+async def test_synthetic_scenarios_reconciliation():
+    # Verify the synthetic benchmark invoices from demo_data.py
+    for receipt in SYNTHETIC_RECEIPTS:
+        raw_text = receipt["raw_ocr_text"]
+        extracted = extract_with_fallback(raw_text)
+        rec = validate_and_normalize_record(extracted, raw_ocr_text=raw_text)
+
+        if receipt["source_filename"] == "aws-cloud-invoice-sep2026.pdf":
+            assert "Amazon Web Services" in rec["merchant"]
+            assert rec["total"] == 42.18
+            assert rec["reconciliation_status"] == "reconciled"
+
+        elif receipt["source_filename"] == "indian-gst-tech-solutions.pdf":
+            assert "Tech Solutions" in rec["merchant"]
+            assert rec["discount"] == 114.00
+            assert rec["total"] == 2600.00
+            assert rec["reconciliation_status"] == "reconciled"
+
+        elif receipt["source_filename"] == "express-courier-surcharge.pdf":
+            assert rec["additional_charges"] == 10.00
+            assert rec["total"] == 64.00
+            assert rec["reconciliation_status"] == "reconciled"
+
+        elif receipt["source_filename"] == "hetzner-cloud-europe.pdf":
+            assert rec["currency"] == "EUR"
+            assert rec["total"] == 54.74
+            assert rec["reconciliation_status"] == "reconciled"
+
+        elif receipt["source_filename"] == "illegible-taxi-receipt.png":
+            # Missing/smudged total must require human review
+            assert rec["reconciliation_status"] == "mismatch"
+            assert any("total amount is missing" in w.lower() for w in rec["warnings"])
+
+        elif receipt["source_filename"] == "reconciliation-mismatch-bistro.png":
+            # 20 subtotal + 2 tax vs 28.50 total -> mismatch
+            assert rec["reconciliation_status"] == "mismatch"
+
+@pytest.mark.asyncio
+async def test_formula_injection_defense_suite():
+    # Verify comprehensive protection against CSV injection attacks
+    malicious_inputs = [
+        "=1+1",
+        "=CMD|' /C calc'!A0",
+        "@SUM(A1:A10)",
+        "+12345",
+        "-calc",
+        "\tcmd.exe",
+        "\r=1+1",
+    ]
+    for payload in malicious_inputs:
+        sanitized = sanitize_csv_cell(payload)
+        assert sanitized.startswith("'"), f"Failed to sanitize: {payload}"
+
+    # Safe text must remain unescaped
+    safe_inputs = ["AWS Cloud Invoice", "123 Main St", "Coffee & Snacks", "42.18"]
+    for safe in safe_inputs:
+        assert sanitize_csv_cell(safe) == safe
+

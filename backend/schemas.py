@@ -1,5 +1,6 @@
+import re
 from typing import List, Optional, Dict, Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 FREELANCE_CATEGORIES = [
     "Software & SaaS",
@@ -29,6 +30,30 @@ class ExtractedReceiptFields(BaseModel):
     payment_method: Optional[str] = Field(None, description="Payment method or card hint if present.")
     description: Optional[str] = Field(None, description="Brief 1-line description of goods/services purchased.")
     warnings: List[str] = Field(default_factory=list, description="Specific warnings about illegible or missing fields.")
+
+    @field_validator("subtotal", "tax", "discount", "additional_charges", "total", mode="before")
+    @classmethod
+    def parse_monetary_value(cls, v: Any) -> Optional[float]:
+        if v is None or v == "" or str(v).lower() in ("null", "none", "n/a", "-", "nan", "undefined"):
+            return None
+        if isinstance(v, (int, float)):
+            # Guard against NaN / inf
+            import math
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return float(v)
+        if isinstance(v, str):
+            # Clean currency symbols, commas, spaces, currency codes
+            cleaned = re.sub(r"[^\d.-]", "", v.replace(",", "").strip())
+            try:
+                parsed = float(cleaned)
+                import math
+                if math.isnan(parsed) or math.isinf(parsed):
+                    return None
+                return parsed
+            except ValueError:
+                return None
+        return None
 
 class ReviewUpdateRequest(BaseModel):
     """Payload sent by human reviewer to update/confirm an expense."""

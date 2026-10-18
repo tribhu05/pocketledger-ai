@@ -212,5 +212,60 @@ Card: Amex 1004""",
             "payment_method": "Amex 1004",
             "reconciliation_status": "mismatch"
         }
+    },
+    {
+        "source_filename": "indian-gst-tech-solutions.pdf",
+        "mime_type": "application/pdf",
+        "raw_ocr_text": """Tech Solutions Pvt Ltd
+Tax Invoice #INV-9988
+Date: 2026-10-10
+Client: Freelance Dev
+Subtotal: ₹2300.00
+GST (18%): ₹414.00
+Promotional Discount: ₹114.00
+Total Amount: ₹2600.00
+Payment Mode: UPI / Net Banking""",
+        "expected": {
+            "merchant": "Tech Solutions Pvt Ltd",
+            "document_type": "invoice",
+            "invoice_number": "INV-9988",
+            "transaction_date": "2026-10-10",
+            "currency": "INR",
+            "subtotal": 2300.00,
+            "tax": 414.00,
+            "discount": 114.00,
+            "additional_charges": 0.00,
+            "total": 2600.00,
+            "category": "Software & SaaS",
+            "payment_method": "UPI",
+            "reconciliation_status": "reconciled"
+        }
+    },
+    {
+        "source_filename": "express-courier-surcharge.pdf",
+        "mime_type": "application/pdf",
+        "raw_ocr_text": """Flash Courier Delivery Services
+Invoice #FC-5521
+Date: 2026-09-12
+Base Shipment Subtotal: $50.00
+Standard Tax (8%): $4.00
+Urgent Delivery Surcharge: $10.00
+Total Charged: $64.00
+Credit Card: Visa 2201""",
+        "expected": {
+            "merchant": "Flash Courier Delivery Services",
+            "document_type": "invoice",
+            "invoice_number": "FC-5521",
+            "transaction_date": "2026-09-12",
+            "currency": "USD",
+            "subtotal": 50.00,
+            "tax": 4.00,
+            "discount": 0.00,
+            "additional_charges": 10.00,
+            "total": 64.00,
+            "category": "Office Supplies",
+            "payment_method": "Visa 2201",
+            "reconciliation_status": "reconciled"
+        }
     }
 ]
